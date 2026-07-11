@@ -5,3 +5,4 @@ phoenix_data/
 .env
 
 .serena/
+outputs-demo-*.txt

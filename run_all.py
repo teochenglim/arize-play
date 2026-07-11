@@ -84,6 +84,13 @@ except httpx.HTTPError:
 if phoenix_up:
     for script in ("pattern4_improvement_loop/agent.py", "pattern5_credit_card_redaction/agent.py"):
         print(f"\n{'=' * 78}")
+        # subprocess.run() writes to the inherited stdout fd directly, but
+        # this script's own print()s above are fully buffered (not
+        # line-buffered) whenever stdout isn't a live tty -- piped through
+        # another command, redirected to a file, or captured by tooling.
+        # Without an explicit flush here, the table above would show up
+        # AFTER pattern 4/5's output instead of before it.
+        sys.stdout.flush()
         subprocess.run(["uv", "run", "python", script], check=False)
 else:
     print(f"\n[patterns 4 & 5 skipped -- Phoenix not reachable at {phoenix_url}]")
