@@ -47,6 +47,13 @@ def init_tracing(project_name: str):
         protocol="grpc",
         auto_instrument=False,
         verbose=False,
+        # run_all.py calls init_tracing() once per pattern in the same
+        # process (one project per pattern), and every caller here always
+        # uses the tracer object returned below, never OTel's ambient
+        # global provider -- so there's nothing to lose by not contesting
+        # the global slot, and it silences a harmless but noisy "Overriding
+        # of current TracerProvider is not allowed" warning on the 2nd+ call.
+        set_global_tracer_provider=False,
     )
     return _tracer_provider.get_tracer(project_name)
 

@@ -3,7 +3,7 @@
 **File:** `pattern3_developer_platform/agent.py` · **Who builds this:**
 infra/platform engineering · **Builds a harness other engineers rely on.**
 
-**Run it:** `make demo-03` (or `make local-demo` to run all three patterns)
+**Run it:** `make demo-03`
 
 ## The scenario
 

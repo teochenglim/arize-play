@@ -3,7 +3,7 @@
 **File:** `pattern2_internal_enterprise/agent.py` · **Who builds this:**
 platform/ops teams · **One high-volume internal workflow, not a chatbot.**
 
-**Run it:** `make demo-02` (or `make local-demo` to run all three patterns)
+**Run it:** `make demo-02`
 
 ## The scenario
 

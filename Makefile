@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup apply configure demo demo-01 demo-02 demo-03 demo-04 demo-05 local-demo status logs clean
+.PHONY: help setup apply configure demo demo-01 demo-02 demo-03 demo-04 demo-05 status logs clean
 
 help: ## Show this target list
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*## /{printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -16,7 +16,7 @@ apply: ## kubectl apply -f k8s/ (postgres + phoenix + arize-litellm), wait for r
 configure: ## Re-discover local Ollama models, point arize-litellm at them
 	./scripts/configure_ollama.sh
 
-demo: setup apply ## Run all 3 patterns (run_all.py) against k8s Phoenix/LiteLLM
+demo: ## Run all 3 patterns (run_all.py) against k8s Phoenix/LiteLLM
 	uv run python run_all.py
 
 demo-01: ## Run only pattern 1 (customer-facing HR assistant)
@@ -33,9 +33,6 @@ demo-04: ## Run only pattern 4 (Phoenix Prompts + Datasets + Experiments -- need
 
 demo-05: ## Run only pattern 5 (catch credit-card leaks, same Prompts+Datasets+Experiments workflow as demo-04 -- also needs Phoenix's REST API)
 	uv run python pattern5_credit_card_redaction/agent.py
-
-local-demo: setup ## Run all 3 patterns offline (stub responses, no k8s/ollama needed)
-	uv run python run_all.py
 
 status: ## Show postgres/phoenix/arize-litellm deploy, svc, and pod status
 	kubectl get deploy/postgres deploy/phoenix deploy/arize-litellm svc/postgres svc/phoenix svc/arize-litellm

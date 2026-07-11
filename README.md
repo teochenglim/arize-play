@@ -30,16 +30,20 @@ printed as a copy/paste block for the Phoenix search bar -- see
 Offline, zero setup -- runs on canned LLM responses, $0 cost, no network:
 
 ```bash
-make local-demo   # = uv sync && uv run python run_all.py
+make setup   # uv sync
+make demo    # uv run python run_all.py
 ```
 
-Against real local models: Phoenix + LiteLLM run in your local k8s cluster
-(tested against [colima](https://github.com/abiosoft/colima)'s bundled k3s),
-LiteLLM fronts whatever's in `ollama list` on the host. The demo agent itself
-stays a normal local process -- it's never containerized, just `uv run`.
+Against real local models instead: Phoenix + LiteLLM run in your local k8s
+cluster (tested against [colima](https://github.com/abiosoft/colima)'s
+bundled k3s), LiteLLM fronts whatever's in `ollama list` on the host. The
+demo agent itself stays a normal local process -- it's never containerized,
+just `uv run`.
 
 ```bash
-make demo   # = uv sync && kubectl apply -f k8s/ && configure ollama models && uv run python run_all.py
+make apply       # kubectl apply -f k8s/, wait for rollout
+make configure   # point arize-litellm at your local ollama models
+make demo        # same command as above -- now against real models
 ```
 
 Open **http://localhost:30606** while it runs to watch the traces land live
@@ -166,7 +170,7 @@ run_all.py       runs patterns 1-3, prints the consolidated eval table (patterns
 config.yaml      LiteLLM/Phoenix NodePort addresses, Ollama model tags, per-token pricing
 k8s/             Postgres + Phoenix + LiteLLM manifests -- `kubectl apply -f k8s/`
 scripts/         discover_ollama_models.sh, configure_ollama.sh (called by `make configure`)
-Makefile         local-demo, demo, apply, configure, status, clean
+Makefile         demo, demo-01..demo-05, apply, configure, status, clean
 design.md        why the k8s/LiteLLM/Ollama setup is shaped this way
 ```
 

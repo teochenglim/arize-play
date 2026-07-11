@@ -4,7 +4,7 @@
 product teams · **Users bring a question, the product brings their
 account-scoped data.**
 
-**Run it:** `make demo-01` (or `make local-demo` to run all three patterns)
+**Run it:** `make demo-01`
 
 ## The scenario
 

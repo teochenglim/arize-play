@@ -132,7 +132,9 @@ not run standalone:
 - `configure_ollama.sh` — re-runs discovery, patches the `arize-ollama-models` ConfigMap,
   restarts `deploy/arize-litellm`
 
-`Makefile` targets: `setup` (`uv sync`), `apply`, `configure`, `demo` (apply → configure →
-`uv run python run_all.py`, all against the NodePort-exposed services), `status`, `clean`
-(`kubectl delete -f k8s/`), and `local-demo` (`uv run python run_all.py` with nothing else
-running — the original stub path, kept as a fast sanity check needing no k8s/ollama at all).
+`Makefile` targets: `setup` (`uv sync`), `apply`, `configure`, `demo` (`uv run python
+run_all.py`), `demo-01`..`demo-05`, `status`, `clean` (`kubectl delete -f k8s/`). `demo`
+itself has no `setup`/`apply` prerequisite -- it just runs `run_all.py` against whatever's
+already there, so the same command is both the zero-setup offline path (nothing else
+running, stub responses) and the real-models path (after `apply`/`configure`), depending on
+what you ran first.

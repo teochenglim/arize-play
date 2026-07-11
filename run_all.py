@@ -1,18 +1,31 @@
 """
-Runs all three patterns back to back and prints one consolidated table --
-the "Arize values" for the demo: which level each eval attaches to, which
-evaluator type it uses, and the score/label it produced.
+Runs patterns 1-3 back to back and prints one consolidated table -- the
+"Arize values" for the demo: which level each eval attaches to, which
+evaluator type it uses, and the score/label it produced. Then attempts
+patterns 4 and 5 (the Phoenix Datasets/Prompts/Experiments workflow) as
+subprocesses, so their own rich console narrative prints as-is rather than
+being squeezed into table rows it doesn't fit.
+
+Patterns 1-3 degrade to offline stub responses if LiteLLM isn't reachable
+(see common/llm.py), so this script always runs start to finish either way.
+Patterns 4-5 have no such fallback -- they talk to Phoenix's REST API
+directly -- so this script checks Phoenix's reachability first and skips
+them with a clear message instead of crashing if it's down.
 
 Open http://localhost:30606 before running this to watch traces land live.
 """
+import subprocess
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import httpx
 
 from pattern1_customer_facing.agent import run_session
 from pattern2_internal_enterprise.agent import run_expense_request, EXPENSES
 from pattern3_developer_platform.agent import run_triage, SYSTEM_V1, SYSTEM_V2
 from common.tracing import init_tracing, new_session_id
+from common.config import load_config
 
 rows = []
 
@@ -59,3 +72,19 @@ for row in rows:
     print(" | ".join(str(c).ljust(w) for c, w in zip(row, widths)))
 
 print("Open http://localhost:30606 to see these same runs as traces + span annotations.")
+
+# --- Patterns 4 & 5: the improvement-loop workflow ---
+phoenix_url = load_config()["phoenix"]["ui_url"]
+try:
+    httpx.get(phoenix_url, timeout=3).raise_for_status()
+    phoenix_up = True
+except httpx.HTTPError:
+    phoenix_up = False
+
+if phoenix_up:
+    for script in ("pattern4_improvement_loop/agent.py", "pattern5_credit_card_redaction/agent.py"):
+        print(f"\n{'=' * 78}")
+        subprocess.run(["uv", "run", "python", script], check=False)
+else:
+    print(f"\n[patterns 4 & 5 skipped -- Phoenix not reachable at {phoenix_url}]")
+    print("Run `make apply` first, then `make demo` again, to include them.")
