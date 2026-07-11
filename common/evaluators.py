@@ -1,18 +1,18 @@
 """
-The four evaluator types Arize/Mastra call out, minus the ceremony:
+The evaluator types this demo uses:
 
-- code_evaluator     deterministic check on tool args / state (no LLM call)
-- binary_evaluator   pass/fail on ONE named failure mode
-- llm_judge          rubric score on open-ended output, calibrated prompt
-- harness_judge      like llm_judge, but sees the FULL trace (all tool calls,
-                     not just the final answer) -- for when a fixed rubric
-                     on the final answer alone is too rigid
+- code_evaluator          deterministic check on tool args / state (no LLM call)
+- binary_evaluator        pass/fail on ONE named failure mode
+- harness_judge           rubric score with full trace visibility (all tool
+                          calls, not just the final answer) -- for when a
+                          fixed rubric on the final answer alone is too rigid
 
 Every evaluator writes its result onto the *current span* as attributes, so
 it shows up next to the run in the Phoenix UI, and returns a plain dict so
-eval_report.py can also print it as a table.
+run_all.py can also print it as a table.
 """
-from openinference.semconv.trace import SpanAttributes
+import json
+
 from common.llm import call_llm
 
 
@@ -34,30 +34,11 @@ def binary_evaluator(span, name: str, passed: bool, explanation: str):
     return _attach(span, name, 1 if passed else 0, "pass" if passed else "fail", explanation)
 
 
-def llm_judge(tracer, span, name: str, rubric: str, output_to_judge: str):
-    """Rubric-scores the final answer only. Calibrate the rubric against a
-    few human-labeled examples before trusting it in production."""
-    system = (
-        "You are a strict evaluator. Score the AGENT OUTPUT against the RUBRIC "
-        "on a 1-5 scale. Reply with exactly two lines: 'score: <1-5>' then "
-        "'reason: <one sentence>'."
-    )
-    prompt = f"RUBRIC:\n{rubric}\n\nAGENT OUTPUT:\n{output_to_judge}"
-    text, _usage = call_llm(
-        tracer,
-        f"judge:{name}",
-        system,
-        prompt,
-        canned_fallback="score: 4\nreason: Grounded in the retrieved context, minor phrasing issue.",
-    )
-    score, reason = _parse_judge(text)
-    return _attach(span, name, score, "pass" if score >= 3 else "fail", reason)
-
-
 def harness_judge(tracer, span, name: str, rubric: str, full_trace_text: str, canned_fallback: str = None):
-    """Like llm_judge, but the judge sees every tool call and intermediate
+    """Like a plain rubric judge, but sees every tool call and intermediate
     step, not just the final answer -- use when the correct path is
-    under-specified (agent may take 3 tools or 7 and still be right)."""
+    under-specified (agent may take 3 tools or 7 and still be right) and
+    there's no simple ground-truth value to check deterministically."""
     system = (
         "You are a strict evaluator with full visibility into an agent's run: "
         "every tool call, intermediate result, and the final answer. Judge the "
@@ -72,15 +53,25 @@ def harness_judge(tracer, span, name: str, rubric: str, full_trace_text: str, ca
         prompt,
         canned_fallback=canned_fallback
         or "score: 5\nreason: Tool sequence was unconventional but reached a correct, verifiable state.",
+        model_role="judge",
     )
     score, reason = _parse_judge(text)
     return _attach(span, name, score, "pass" if score >= 3 else "fail", reason)
 
 
 def _parse_judge(text: str):
+    # Models asked for "two lines of plain text" occasionally reply with
+    # JSON instead (e.g. {"score": 5, "reason": "..."}) -- try that first.
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict) and "score" in data:
+            return int(data["score"]), str(data.get("reason", text.strip()))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+
     score, reason = 3, text.strip()
     for line in text.splitlines():
-        line = line.strip().lower()
+        line = line.strip().strip('"').lower()
         if line.startswith("score"):
             digits = "".join(c for c in line if c.isdigit())
             if digits:

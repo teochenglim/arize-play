@@ -1,0 +1,34 @@
+[
+  {
+    "request_id": "REQ-1001",
+    "employee": "Marcus Tan",
+    "department": "Sales",
+    "category": "travel",
+    "amount_sgd": 240,
+    "description": "Client meeting taxi"
+  },
+  {
+    "request_id": "REQ-1002",
+    "employee": "Aisha Rahman",
+    "department": "Design",
+    "category": "equipment",
+    "amount_sgd": 1200,
+    "description": "New ergonomic chair"
+  },
+  {
+    "request_id": "REQ-1003",
+    "employee": "Wei Jian Lim",
+    "department": "Finance",
+    "category": "training",
+    "amount_sgd": 450,
+    "description": "Excel advanced course"
+  },
+  {
+    "request_id": "REQ-1004",
+    "employee": "Priya Nair",
+    "department": "Engineering",
+    "category": "meals",
+    "amount_sgd": 600,
+    "description": "Team dinner"
+  }
+]

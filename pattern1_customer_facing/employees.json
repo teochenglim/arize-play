@@ -1,0 +1,50 @@
+[
+  {
+    "employee": "Priya Nair",
+    "department": "Engineering",
+    "tenure_years": 3,
+    "base_salary_sgd": 96000,
+    "last_payslip_deductions": ["CPF employee 20%", "SDL 0.25%"],
+    "leave_balance_days": 6
+  },
+  {
+    "employee": "Marcus Tan",
+    "department": "Sales",
+    "tenure_years": 7,
+    "base_salary_sgd": 84000,
+    "last_payslip_deductions": ["CPF employee 20%", "SDL 0.25%", "Union dues SGD 9"],
+    "leave_balance_days": 14
+  },
+  {
+    "employee": "Aisha Rahman",
+    "department": "Design",
+    "tenure_years": 1,
+    "base_salary_sgd": 78000,
+    "last_payslip_deductions": ["CPF employee 20%"],
+    "leave_balance_days": 2
+  },
+  {
+    "employee": "Wei Jian Lim",
+    "department": "Finance",
+    "tenure_years": 10,
+    "base_salary_sgd": 112000,
+    "last_payslip_deductions": ["CPF employee 20%", "SDL 0.25%", "Season parking SGD 120"],
+    "leave_balance_days": 19
+  },
+  {
+    "employee": "Kavya Menon",
+    "department": "Product",
+    "tenure_years": 5,
+    "base_salary_sgd": 101000,
+    "last_payslip_deductions": ["CPF employee 20%", "SDL 0.25%"],
+    "leave_balance_days": 0
+  },
+  {
+    "employee": "Daniel Ong",
+    "department": "Support",
+    "tenure_years": 2,
+    "base_salary_sgd": 68000,
+    "last_payslip_deductions": ["CPF employee 20%", "SDL 0.25%", "Optical claim advance SGD 150"],
+    "leave_balance_days": 11
+  }
+]

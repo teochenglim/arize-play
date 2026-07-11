@@ -17,21 +17,22 @@ on purpose, so you can show it live:
 That's the whole loop. In production you'd do this from real production
 failures, not a canned example, but the mechanics are identical.
 """
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+import json
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from common.tracing import init_tracing
 from common.llm import call_llm
 from common.evaluators import binary_evaluator, harness_judge
 
-LOG_BATCH = [
-    "2026-07-11T02:14:01Z api-7f4 INFO  request completed in 82ms",
-    "2026-07-11T02:14:03Z worker-2 WARN  retrying job 4471 (attempt 2/5)",
-    "2026-07-11T02:14:05Z worker-2 ERROR job 4471 killed: cgroup out-of-memory, container exit code 137",
-    "2026-07-11T02:14:06Z api-7f4 INFO  request completed in 91ms",
-]
+LOGS_PATH = Path(__file__).resolve().parent / "logs.json"
 
 incident_system = []
+
+
+def load_logs():
+    return json.loads(LOGS_PATH.read_text())
 
 
 def create_incident(summary: str, severity: str):
@@ -57,7 +58,7 @@ SYSTEM_V2 = SYSTEM_V1 + (
 
 
 def run_triage(tracer, run_label: str, system_prompt: str):
-    log_text = "\n".join(LOG_BATCH)
+    log_text = "\n".join(load_logs())
     with tracer.start_as_current_span(f"sre_triage:{run_label}") as span:
         span.set_attribute("input.value", log_text)
 

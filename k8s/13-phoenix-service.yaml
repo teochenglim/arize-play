@@ -1,0 +1,20 @@
+# NodePort so the demo agent (running locally via uv, not in-cluster) can
+# reach Phoenix at http://localhost:<nodePort> with no port-forward needed.
+apiVersion: v1
+kind: Service
+metadata:
+  name: phoenix
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: phoenix
+  ports:
+    - name: ui
+      port: 6006
+      targetPort: 6006
+      nodePort: 30606
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      nodePort: 30317

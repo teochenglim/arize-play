@@ -1,0 +1,20 @@
+# LiteLLM proxy's own routing config -- mounted at /etc/litellm/config.yaml
+# inside the arize-litellm container. Model names/api_base come from env vars
+# (set by the arize-ollama-models ConfigMap) so this file never needs to
+# change when you swap models.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arize-litellm-config
+  namespace: default
+data:
+  config.yaml: |
+    model_list:
+      - model_name: agent
+        litellm_params:
+          model: os.environ/AGENT_MODEL
+          api_base: os.environ/OLLAMA_API_BASE
+      - model_name: judge
+        litellm_params:
+          model: os.environ/JUDGE_MODEL
+          api_base: os.environ/OLLAMA_API_BASE

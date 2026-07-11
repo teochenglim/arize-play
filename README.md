@@ -7,43 +7,47 @@ one](https://arize.com/blog/3-production-patterns-ai-agents-how-to-evaluate-each
 
 One folder per pattern, ~100 lines each, all wired into
 [Phoenix](https://phoenix.arize.com/) (Arize's open-source tracing + eval
-tool). No docker, no account, no API key required to see it run.
+tool). No account, no API key, no cloud LLM required to see it run -- Phoenix
+and an LLM proxy ([LiteLLM](https://www.litellm.ai/)) run in local k8s,
+fronting whatever models you already have pulled in
+[Ollama](https://ollama.com/).
 
 | # | Pattern | Who builds it | This demo's use case | First production risk (per the article) |
 |---|---|---|---|---|
-| 1 | Customer-facing | Product teams | In-app HR assistant answering from account-scoped data | Inference cost at scale; incomplete pre-launch evals |
+| 1 | Customer-facing | Product teams | In-app HR assistant answering from a flat-file employee lookup | Incomplete pre-launch evals -- a flawed retriever silently attaches the wrong person's data |
 | 2 | Internal enterprise | Platform/ops teams | Expense approval process automation | Org friction; fragmented data systems |
 | 3 | Developer platform | Infra/platform engineering | AI SRE triaging logs, opens incidents | Governance; standardizing the harness |
 
 ## Quickstart
 
-```bash
-pip install -r requirements.txt
-python3 run_all.py
-```
-
-That's it. It launches Phoenix locally, runs all three patterns on canned
-LLM responses (no API key, no network, $0 cost), evaluates each run, and
-prints a consolidated table. Open **http://localhost:6006** while it runs
-to watch the traces land live -- click into any span to see the eval
-scores attached as attributes.
-
-To use a real model instead of canned responses:
+Offline, zero setup -- runs on canned LLM responses, $0 cost, no network:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-python3 run_all.py
+make local-demo   # = uv sync && uv run python run_all.py
 ```
 
-Same code path, same spans -- just real `claude-haiku-4-5` calls and real
-token counts instead of stub numbers.
+Against real local models: Phoenix + LiteLLM run in your local k8s cluster
+(tested against [colima](https://github.com/abiosoft/colima)'s bundled k3s),
+LiteLLM fronts whatever's in `ollama list` on the host. The demo agent itself
+stays a normal local process -- it's never containerized, just `uv run`.
+
+```bash
+make demo   # = uv sync && kubectl apply -f k8s/ && configure ollama models && uv run python run_all.py
+```
+
+Open **http://localhost:30606** while it runs to watch the traces land live
+in Phoenix -- click into any span to see the eval scores attached as
+attributes. See [design.md](design.md) for how the k8s side is wired
+together (`kubectl apply -f k8s/` and `kubectl delete -f k8s/` work standalone
+too, no Makefile required) and `Makefile` for the rest of the targets
+(`apply`, `configure`, `status`, `clean`).
 
 To send traces to Arize AX (cloud) instead of local Phoenix:
 
 ```bash
 export PHOENIX_COLLECTOR_ENDPOINT=https://otlp.arize.com/v1/traces
 export PHOENIX_CLIENT_HEADERS="space_id=...,api_key=..."
-python3 run_all.py
+uv run python run_all.py
 ```
 
 ## What "the Arize values" means here
@@ -56,16 +60,14 @@ The article draws two distinctions that this demo makes concrete:
 |---|---|---|
 | Span | one tool call or model turn | `tool:create_ticket`, `tool:create_incident` |
 | Trace | the full run, input to final answer | every pattern's ship-gate eval |
-| Session | a multi-turn visit | pattern 1's cost-budget check across 2 turns |
 
 **Which evaluator type you reach for**:
 
 | Type | No model call? | Used in this demo for |
 |---|---|---|
-| `code_evaluator` | yes | pattern 1 session cost budget; pattern 2 workflow-state check (ticket exists before status flips to complete) |
-| `binary_evaluator` | no, but one named failure mode | pattern 3's `missed_critical_incident` |
-| `llm_judge` | no | pattern 1's `grounded_in_account_context` (final answer only) |
-| `harness_judge` | no, full trace context | pattern 3's `triage_quality` (sees every log line + tool call, not just the last line) |
+| `code_evaluator` | yes | pattern 1's `ground_truth_arbiter` (re-reads `employees.json` fresh, strict number match); pattern 2's workflow-state check (ticket exists before status flips to complete) |
+| `binary_evaluator` | no, but one named failure mode | pattern 1's `identity_lock` (retrieved record's name vs. the user's); pattern 3's `missed_critical_incident` |
+| `harness_judge` | no, full trace context | pattern 1's `no_invented_deductions`; pattern 3's `triage_quality` (sees every log line + tool call, not just the last line) |
 
 Run each score is attached to its span as `eval.<name>.score` /
 `eval.<name>.label` / `eval.<name>.explanation` -- open Phoenix and click a
@@ -74,8 +76,38 @@ article says an eval belongs.
 
 ## The improvement loop, played out once
 
-Pattern 3 (`pattern3_developer_platform/agent.py`) runs the loop from the
-article on purpose, so you can point at it live:
+Pattern 1 (`pattern1_customer_facing/agent.py`) plays out the same loop
+against a deliberately flawed **retriever**, not the LLM -- see
+[demo-01.md](demo-01.md) for the full story:
+
+1. **Trace the run** -- the retriever matches "Kavya" by first name, then
+   for any balance/deduction question throws that match away and returns
+   the highest-tenure employee company-wide instead (Wei Jian Lim)
+2. **Evaluate the failure** -- `identity_lock` and `ground_truth_arbiter`
+   both come back `fail`
+3. **Change the harness** -- swap the retriever's fuzzy first-name +
+   tenure-fallback logic for an exact full-name match
+4. **Rerun** -- same question, both evals now `pass`
+
+```
+$ uv run python pattern1_customer_facing/agent.py
+=== run 1: retriever WITH the highest-tenure fallback bug ===
+retrieved record: Wei Jian Lim (tenure=10y)
+agent answer: Kavya Menon, you have 19 days of leave left. ...
+eval[identity_lock]: fail (query identity='Kavya Menon' vs retrieved_employee_record.employee='Wei Jian Lim')
+eval[ground_truth_arbiter]: fail (answer claims leave balance in [19] for Kavya Menon; ground truth = 0)
+
+--- fix the retriever: exact full-name match instead of first-name-prefix + tenure fallback ---
+
+=== run 2: retriever WITH the fix, same question ===
+retrieved record: Kavya Menon (tenure=5y)
+agent answer: Kavya Menon, you have 0 days of leave left. ...
+eval[identity_lock]: pass (query identity='Kavya Menon' vs retrieved_employee_record.employee='Kavya Menon')
+eval[ground_truth_arbiter]: pass (answer claims leave balance in [0] for Kavya Menon; ground truth = 0)
+```
+
+Pattern 3 (`pattern3_developer_platform/agent.py`) runs the same loop
+against a missed-incident harness gap, so you can point at it live too:
 
 1. **Trace the run** -- harness v1 has no example of the OOM-kill failure signature
 2. **Evaluate the failure** -- `missed_critical_incident` comes back `fail`
@@ -101,13 +133,19 @@ eval[triage_quality] (harness-as-judge): 5/5
 
 ```
 common/
-  tracing.py     one call, wires any pattern into local Phoenix or Arize AX
-  llm.py         Claude call w/ offline stub fallback; consistent span shape either way
+  tracing.py     one call, wires any pattern into k8s Phoenix or Arize AX
+  llm.py         LiteLLM call w/ offline stub fallback; consistent span shape either way
   evaluators.py  the four evaluator types, one small function each
+  config.py      loads config.yaml (LiteLLM/Phoenix addresses, model tags, demo pricing)
 pattern1_customer_facing/agent.py
 pattern2_internal_enterprise/agent.py
 pattern3_developer_platform/agent.py
 run_all.py       runs all three, prints the consolidated eval table
+config.yaml      LiteLLM/Phoenix NodePort addresses, Ollama model tags, per-token pricing
+k8s/             Postgres + Phoenix + LiteLLM manifests -- `kubectl apply -f k8s/`
+scripts/         discover_ollama_models.sh, configure_ollama.sh (called by `make configure`)
+Makefile         local-demo, demo, apply, configure, status, clean
+design.md        why the k8s/LiteLLM/Ollama setup is shaped this way
 ```
 
 ## Deliberately left out

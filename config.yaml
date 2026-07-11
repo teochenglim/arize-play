@@ -1,0 +1,30 @@
+# Demo config read by common/llm.py and common/tracing.py.
+#
+# The demo agent runs locally (uv/pyenv), not in-cluster -- Phoenix and
+# LiteLLM run in k8s and are reached over their NodePorts on localhost, no
+# port-forward needed. LITELLM_BASE_URL / PHOENIX_COLLECTOR_ENDPOINT env vars
+# still override these if you ever do run the agent elsewhere.
+litellm:
+  base_url: http://localhost:30401
+
+# Which real Ollama models LiteLLM routes the "agent"/"judge" aliases to, and
+# where it reaches Ollama (from inside the LiteLLM pod, via
+# host.docker.internal). This is the source of truth: k8s/21-litellm-models.yaml
+# ships with the same values so `kubectl apply -f k8s/` works standalone;
+# `make configure` (scripts/configure_ollama.sh) re-discovers from `ollama list`
+# and patches that ConfigMap to match if your local models differ.
+ollama:
+  api_base: http://host.docker.internal:11434
+  agent_model: ollama/llama3.1:8b
+  judge_model: ollama/qwen3:0.6b
+
+phoenix:
+  collector_endpoint: http://localhost:30317
+  ui_url: http://localhost:30606
+
+# Local models cost nothing to run, but pattern 1's session-budget eval is
+# only interesting if some cost accrues per call -- this is a synthetic
+# per-token price applied to real token counts, same as the demo always used.
+pricing_usd_per_1m_tokens:
+  input: 1.00
+  output: 5.00

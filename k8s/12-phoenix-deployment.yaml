@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phoenix
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: phoenix
+  template:
+    metadata:
+      labels:
+        app: phoenix
+    spec:
+      # Kubernetes auto-injects <SVC>_PORT env vars (Docker-links style) for
+      # every Service into every pod in the namespace -- since our Service is
+      # named "phoenix", that becomes PHOENIX_PORT=tcp://<ip>:<port>, which
+      # crashes Phoenix's own config parsing (it expects an integer). Turn
+      # off the injection rather than fight it one env var at a time.
+      enableServiceLinks: false
+      containers:
+        - name: phoenix
+          image: arizephoenix/phoenix:latest
+          ports:
+            - containerPort: 6006
+            - containerPort: 4317
+          env:
+            - name: PHOENIX_SQL_DATABASE_URL
+              value: postgresql://postgres:postgres@postgres:5432/postgres
+            - name: PHOENIX_DISABLE_AGENT_ASSISTANT
+              value: "TRUE"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 6006
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi

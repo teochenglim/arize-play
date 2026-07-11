@@ -1,0 +1,15 @@
+# NodePort 30401 -- distinct from the pre-existing litellm-guard service
+# (default/litellm-guard, NodePort 30400) so the two don't collide.
+apiVersion: v1
+kind: Service
+metadata:
+  name: arize-litellm
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: arize-litellm
+  ports:
+    - port: 4000
+      targetPort: 4000
+      nodePort: 30401

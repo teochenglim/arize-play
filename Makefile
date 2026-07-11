@@ -1,0 +1,42 @@
+.DEFAULT_GOAL := help
+.PHONY: help setup apply configure demo demo-01 demo-02 demo-03 local-demo status logs clean
+
+help: ## Show this target list
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*## /{printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+setup: ## uv sync
+	uv sync
+
+apply: ## kubectl apply -f k8s/ (postgres + phoenix + arize-litellm), wait for rollout
+	kubectl apply -f k8s/
+	kubectl rollout status deployment/postgres --timeout=60s
+	kubectl rollout status deployment/phoenix --timeout=60s
+	kubectl rollout status deployment/arize-litellm --timeout=60s
+
+configure: ## Re-discover local Ollama models, point arize-litellm at them
+	./scripts/configure_ollama.sh
+
+demo: setup apply ## Run all 3 patterns (run_all.py) against k8s Phoenix/LiteLLM
+	uv run python run_all.py
+
+demo-01: ## Run only pattern 1 (customer-facing HR assistant)
+	uv run python pattern1_customer_facing/agent.py
+
+demo-02: ## Run only pattern 2 (expense approval workflow)
+	uv run python pattern2_internal_enterprise/agent.py
+
+demo-03: ## Run only pattern 3 (AI SRE triage loop)
+	uv run python pattern3_developer_platform/agent.py
+
+local-demo: setup ## Run all 3 patterns offline (stub responses, no k8s/ollama needed)
+	uv run python run_all.py
+
+status: ## Show postgres/phoenix/arize-litellm deploy, svc, and pod status
+	kubectl get deploy/postgres deploy/phoenix deploy/arize-litellm svc/postgres svc/phoenix svc/arize-litellm
+	kubectl get pods -l 'app in (postgres,phoenix,arize-litellm)'
+
+logs: ## Tail arize-litellm logs
+	kubectl logs -f deployment/arize-litellm
+
+clean: ## kubectl delete -f k8s/
+	kubectl delete -f k8s/

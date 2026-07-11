@@ -1,8 +1,0 @@
-# Tracing + eval (Arize's OSS tool -- runs locally, no account needed)
-arize-phoenix
-arize-phoenix-otel
-openinference-semantic-conventions
-
-# Only needed if you set ANTHROPIC_API_KEY; otherwise the demo runs on
-# canned responses with $0 cost and no network calls.
-anthropic

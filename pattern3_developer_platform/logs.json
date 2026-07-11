@@ -1,0 +1,6 @@
+[
+  "2026-07-11T02:14:01Z api-7f4 INFO  request completed in 82ms",
+  "2026-07-11T02:14:03Z worker-2 WARN  retrying job 4471 (attempt 2/5)",
+  "2026-07-11T02:14:05Z worker-2 ERROR job 4471 killed: cgroup out-of-memory, container exit code 137",
+  "2026-07-11T02:14:06Z api-7f4 INFO  request completed in 91ms"
+]

@@ -1,0 +1,13 @@
+# Which Ollama models arize-litellm routes "agent"/"judge" to, and where to
+# reach Ollama. Defaults below are confirmed present in `ollama list` on this
+# host. Override with `scripts/configure_ollama.sh` (called by `make
+# configure`) if your local Ollama has a different model set.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arize-ollama-models
+  namespace: default
+data:
+  OLLAMA_API_BASE: http://host.docker.internal:11434
+  AGENT_MODEL: ollama/llama3.1:8b
+  JUDGE_MODEL: ollama/qwen3:0.6b
