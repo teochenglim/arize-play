@@ -1,0 +1,65 @@
+Phoenix UI: http://localhost:30606
+
+────────────────────────────────────────────────────────────
+  PATTERN 1 -- Customer-facing agent (in-app HR assistant)
+────────────────────────────────────────────────────────────
+User asks:
+    │ Hi, I'm Kavya Menon. What is my leave balance and deductions?
+
+▶ RUN 1 -- retriever WITH the highest-tenure fallback bug
+  retrieved record: Wei Jian Lim (tenure=10y)
+  agent replies:
+    │ Since you are Kavya Menon, I'll provide the information based on your record.
+    │ 
+    │ Your leave balance is: **19**
+    │ 
+    │ And here are your deductions:
+    │ 
+    │ * CPF employee: **20%**
+    │ * SDL: **0.25%**
+    │ * Season parking: **120** SGD
+
+  ✘ FAIL [0]  identity_lock
+      query identity='Kavya Menon' vs retrieved_employee_record.employee='Wei Jian Lim'
+  ✘ FAIL [0]  ground_truth_arbiter
+      answer claims leave balance in [] for Kavya Menon; ground truth (fresh from employees.json) = 0
+  ✔ PASS [5]  no_invented_deductions
+      the answer directly references the deductions from the retrieved record without inventing any additional items.
+
+  find this run in Phoenix (search bar, top of the Traces table):
+    trace.id      = 7199ad66e0591fef6aa84cf1003d17c1
+    session.id    = 8606e678-b0d6-435d-903d-50b0a5bd0860
+    user.id       = kavya.menon
+    run.timestamp = 2026-07-11T13:37:59.870080+00:00
+
+-- fix applied -- exact full-name match instead of first-name-prefix + tenure fallback
+
+▶ RUN 2 -- retriever WITH the fix, same question
+  retrieved record: Kavya Menon (tenure=5y)
+  agent replies:
+    │ To answer Kavya Menon's question:
+    │ 
+    │ Leave balance: 0
+    │ Deductions:
+    │ 1. CPF employee: 20%
+    │ 2. SDL: 0.25%
+
+  ✔ PASS [1]  identity_lock
+      query identity='Kavya Menon' vs retrieved_employee_record.employee='Kavya Menon'
+  ✘ FAIL [0]  ground_truth_arbiter
+      answer claims leave balance in [] for Kavya Menon; ground truth (fresh from employees.json) = 0
+  ✔ PASS [5]  no_invented_deductions
+      the answer correctly mentions the deductions provided in the retrieved record and accurately answers the question without inventing any additional items.
+
+  find this run in Phoenix (search bar, top of the Traces table):
+    trace.id      = 84d058687dc0b69b61791fdc60640d97
+    session.id    = 8606e678-b0d6-435d-903d-50b0a5bd0860
+    user.id       = kavya.menon
+    run.timestamp = 2026-07-11T13:38:05.703699+00:00
+
+───────────────────────────────────────
+  SUMMARY -- before vs. after the fix
+───────────────────────────────────────
+  identity_lock            FAIL  ->  PASS
+  ground_truth_arbiter     FAIL  ->  FAIL
+  no_invented_deductions   PASS  ->  PASS

@@ -1,0 +1,67 @@
+Phoenix UI: http://localhost:30606
+
+──────────────────────────────────────────────────────────────────────
+  PATTERN 2 -- Internal enterprise agent (expense approval workflow)
+──────────────────────────────────────────────────────────────────────
+Batch: 4 requests from expenses.json, one finance-ops session
+
+
+▶ REQ-1001 -- Marcus Tan (Sales)
+  category: travel   amount: SGD 240   note: Client meeting taxi
+  decision: APPROVE   ticket: created   status: COMPLETE
+
+  ✔ PASS [1]  ticket_created_before_status_complete
+      ticket_created=True, status=COMPLETE
+
+  find this run in Phoenix (search bar, top of the Traces table):
+    trace.id      = fb43edb74cff78c33572888788941a57
+    session.id    = ca76424c-7cd5-40cd-8798-a1d33d778340
+    user.id       = marcus.tan
+    run.timestamp = 2026-07-11T13:38:19.695071+00:00
+
+▶ REQ-1002 -- Aisha Rahman (Design)
+  category: equipment   amount: SGD 1200   note: New ergonomic chair
+  decision: REJECT   ticket: NOT created   status: COMPLETE
+
+  ✘ FAIL [0]  ticket_created_before_status_complete
+      ticket_created=False, status=COMPLETE
+
+  find this run in Phoenix (search bar, top of the Traces table):
+    trace.id      = cdf5b6a940508f6fa0634028c91d271a
+    session.id    = ca76424c-7cd5-40cd-8798-a1d33d778340
+    user.id       = aisha.rahman
+    run.timestamp = 2026-07-11T13:38:24.956459+00:00
+
+▶ REQ-1003 -- Wei Jian Lim (Finance)
+  category: training   amount: SGD 450   note: Excel advanced course
+  decision: APPROVE   ticket: created   status: COMPLETE
+
+  ✔ PASS [1]  ticket_created_before_status_complete
+      ticket_created=True, status=COMPLETE
+
+  find this run in Phoenix (search bar, top of the Traces table):
+    trace.id      = 3710686514f4cd8cc4fb90bde5d8a4c4
+    session.id    = ca76424c-7cd5-40cd-8798-a1d33d778340
+    user.id       = wei.jian.lim
+    run.timestamp = 2026-07-11T13:38:25.730288+00:00
+
+▶ REQ-1004 -- Priya Nair (Engineering)
+  category: meals   amount: SGD 600   note: Team dinner
+  decision: REJECT   ticket: created   status: COMPLETE
+
+  ✔ PASS [1]  ticket_created_before_status_complete
+      ticket_created=True, status=COMPLETE
+
+  find this run in Phoenix (search bar, top of the Traces table):
+    trace.id      = 403434ec5ded4a4ee6a01abe0aa623b6
+    session.id    = ca76424c-7cd5-40cd-8798-a1d33d778340
+    user.id       = priya.nair
+    run.timestamp = 2026-07-11T13:38:26.274966+00:00
+
+──────────────────────────────────────
+  SUMMARY -- all requests this batch
+──────────────────────────────────────
+  REQ-1001   travel     SGD 240    APPROVE  ticket=True  PASS
+  REQ-1002   equipment  SGD 1200   REJECT   ticket=False FAIL
+  REQ-1003   training   SGD 450    APPROVE  ticket=True  PASS
+  REQ-1004   meals      SGD 600    REJECT   ticket=True  PASS

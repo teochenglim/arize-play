@@ -1,0 +1,50 @@
+Phoenix UI: http://localhost:30606
+
+─────────────────────────────────────────────────────────
+  PATTERN 3 -- Developer platform agent (AI SRE triage)
+─────────────────────────────────────────────────────────
+Log batch:
+    │ 2026-07-11T02:14:01Z api-7f4 INFO  request completed in 82ms
+    │ 2026-07-11T02:14:03Z worker-2 WARN  retrying job 4471 (attempt 2/5)
+    │ 2026-07-11T02:14:05Z worker-2 ERROR job 4471 killed: cgroup out-of-memory, container exit code 137
+    │ 2026-07-11T02:14:06Z api-7f4 INFO  request completed in 91ms
+
+▶ RUN 1 -- harness v1 (generic 'flag critical failures' prompt)
+  agent output:
+    │ INCIDENT: CRITICAL - Container crash due to cgroup out-of-memory error.
+
+  ✔ PASS [1]  missed_critical_incident
+      OOM-kill signature present in logs; incident was raised
+  ✔ PASS [5]  triage_quality
+      correctly identifies the true root cause (cgroup out-of-memory error) and severity (critical), as per the agent's run.
+
+  find this run in Phoenix (search bar, top of the Traces table):
+    trace.id      = 2a3645893fc6ad076336c3c4c0965848
+    session.id    = 596b0be9-833e-4d77-8bd3-7acbc4d7e44e
+    user.id       = sre.oncall
+    run.timestamp = 2026-07-11T13:38:33.014921+00:00
+
+-- harness fix applied -- one sentence added teaching the OOM-kill signature
+
+▶ RUN 2 -- harness v2 (with the OOM-kill signature)
+  agent output:
+    │ INCIDENT: Critical - 'out-of-memory' and exit code 137 indicating OOM-killed container.
+
+  ✔ PASS [1]  missed_critical_incident
+      OOM-kill signature present in logs; incident was raised
+  ✔ PASS [5]  triage_quality
+      the agent correctly identifies a critical incident due to oom-killing a container and accurately classifies severity as 'out-of-memory'.
+
+  find this run in Phoenix (search bar, top of the Traces table):
+    trace.id      = 7d637f81df72d9786bd134e90cb1965c
+    session.id    = 596b0be9-833e-4d77-8bd3-7acbc4d7e44e
+    user.id       = sre.oncall
+    run.timestamp = 2026-07-11T13:38:37.377784+00:00
+
+───────────────────────────────────────────────
+  SUMMARY -- before vs. after the harness fix
+───────────────────────────────────────────────
+  missed_critical_incident PASS  ->  PASS
+  triage_quality           PASS  ->  PASS
+
+  incidents raised this session: 2
