@@ -38,6 +38,12 @@ infrastructure.
    ([agent.py:144-164](pattern1_customer_facing/agent.py#L144-L164)).
 5. Three evals run on every turn: `identity_lock`, `ground_truth_arbiter`,
    `no_invented_deductions` (all below).
+6. Every turn's root span is tagged with a `session.id` (shared by run 1 and
+   run 2 -- same underlying conversation, before/after the fix), a `user.id`
+   (the name the caller introduced themselves with), a `run.timestamp`, and
+   the run's own OTel `trace.id` -- see `tag_session()` in
+   [common/tracing.py](common/tracing.py) and its call site at
+   [agent.py:145](pattern1_customer_facing/agent.py#L145).
 
 ## Before Arize: what's invisible
 
@@ -89,6 +95,29 @@ exact full-name match, and rerun the exact same question:
 
 Both evals jump from fail to pass with no change to the LLM, the prompt, or
 the model — because the LLM was never the bug.
+
+## Finding this run again in Phoenix
+
+Each run's console output ends with a copy/paste block:
+
+```
+find this run in Phoenix (search bar, top of the Traces table):
+  trace.id      = 38dd5af4f7d1cef03b4a7a4beec1e75e
+  session.id    = dd1ca8f6-1bf6-409a-9c27-6ed096f75a9a
+  user.id       = kavya.menon
+  run.timestamp = 2026-07-11T12:24:49.168208+00:00
+```
+
+- **`trace.id`** — paste the 32-hex value straight into the search bar to
+  jump to this exact run's trace.
+- **`session.id`** — the same UUID on both run 1 and run 2 (buggy vs. fixed
+  retriever): open Phoenix's **Sessions** view and this pair groups together
+  as one conversation, so you can flip between the before/after runs
+  side by side.
+- **`user.id`** — `kavya.menon` here; in a multi-tenant deployment this is
+  how you'd filter to "every trace for this one user."
+- **`run.timestamp`** — ISO-8601, for "what happened around 2pm" style
+  audit questions.
 
 ## Talking point
 

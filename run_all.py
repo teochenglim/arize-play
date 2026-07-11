@@ -12,31 +12,41 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pattern1_customer_facing.agent import run_session
 from pattern2_internal_enterprise.agent import run_expense_request, EXPENSES
 from pattern3_developer_platform.agent import run_triage, SYSTEM_V1, SYSTEM_V2
-from common.tracing import init_tracing
+from common.tracing import init_tracing, new_session_id
 
 rows = []
 
 # --- Pattern 1: customer-facing ---
 # Same one-question test case run twice, per demo-01.md: once through the
 # deliberately flawed retriever, once through the exact-match fix -- see
-# run_session() in pattern1_customer_facing/agent.py.
+# run_session() in pattern1_customer_facing/agent.py. Both runs share one
+# session_id (same underlying conversation, before/after the fix).
 tracer1 = init_tracing("pattern1-customer-facing")
+session1 = new_session_id()
 for run_label, exact_match in [("run1_buggy_retriever", False), ("run2_exact_match_fix", True)]:
-    retrieved, answer, usage, identity_result, arbiter_result, judge_result = run_session(tracer1, run_label, exact_match)
+    retrieved, answer, usage, identity_result, arbiter_result, judge_result, trace_id, timestamp, user_id = run_session(
+        tracer1, run_label, exact_match, session1
+    )
     rows.append(["1 customer-facing", "trace", "binary_evaluator", f"identity_lock ({run_label})", identity_result["label"], identity_result["score"]])
     rows.append(["1 customer-facing", "trace", "code_evaluator", f"ground_truth_arbiter ({run_label})", arbiter_result["label"], arbiter_result["score"]])
     rows.append(["1 customer-facing", "trace", "harness_judge", f"no_invented_deductions ({run_label})", judge_result["label"], judge_result["score"]])
 
 # --- Pattern 2: internal enterprise ---
+# One session_id for the whole batch of requests.
 tracer2 = init_tracing("pattern2-internal-enterprise")
+session2 = new_session_id()
 for expense in EXPENSES:
-    result, eval_result = run_expense_request(tracer2, expense)
+    result, eval_result, trace_id, timestamp, user_id = run_expense_request(tracer2, expense, session2)
     rows.append(["2 internal enterprise", "trace", "code_evaluator", f"ticket_created_before_status_complete ({result['request_id']})", eval_result["label"], eval_result["score"]])
 
 # --- Pattern 3: developer platform ---
+# One session_id across both harness-fix iterations.
 tracer3 = init_tracing("pattern3-developer-platform")
+session3 = new_session_id()
 for label, system in [("run1_before_harness_fix", SYSTEM_V1), ("run2_after_harness_fix", SYSTEM_V2)]:
-    analysis, usage, binary_result, harness_result = run_triage(tracer3, label, system)
+    analysis, usage, binary_result, harness_result, trace_id, timestamp, user_id = run_triage(
+        tracer3, label, system, session3
+    )
     rows.append(["3 developer platform", "trace", "binary_evaluator", f"missed_critical_incident ({label})", binary_result["label"], binary_result["score"]])
     rows.append(["3 developer platform", "trace", "harness_judge", f"triage_quality ({label})", harness_result["label"], harness_result["score"]])
 

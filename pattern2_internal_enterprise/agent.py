@@ -2,14 +2,17 @@
 PATTERN 2 -- Internal enterprise agent (platform/ops team, org-scale)
 Use case here: expense approval process automation -- one high-volume
 workflow, per the article's "start with one high-volume workflow" advice
-(enterprise search or process automation). No LLM call at all: this is a
-rules-based workflow, and the article's own point is that this pattern's
-risk isn't model quality, it's org friction and fragmented data systems.
+(enterprise search or process automation). The article's own point for this
+pattern is that the risk isn't model quality, it's org friction and
+fragmented data systems -- so an LLM call *is* in the loop here (applying
+the approval policy to each request), but it's a thin, low-stakes one; the
+interesting failure is still in the harness, not the model.
 
-The agent applies a fixed policy (travel/training under SGD 500 ->
-APPROVE, else REJECT) and updates two simulated, separate enterprise
-systems -- a ticketing system (audit trail) and an expense system (status)
--- standing in for real, fragmented APIs (ServiceNow, SAP, ...).
+The agent asks an LLM to apply a fixed policy (travel/training under SGD
+500 -> APPROVE, else REJECT) and then updates two simulated, separate
+enterprise systems -- a ticketing system (audit trail) and an expense
+system (status) -- standing in for real, fragmented APIs (ServiceNow,
+SAP, ...).
 
 THE DELIBERATE BUG: for 'equipment' category requests, ticket creation
 silently never happens -- as if that category routed to a system that
@@ -19,14 +22,21 @@ still gets marked COMPLETE regardless, so a plain decision log
 
 Arize catches this with a deterministic code_evaluator checking the
 workflow-STATE invariant: an expense marked COMPLETE must have a ticket.
+
+Every request also gets tagged with a shared session.id (this whole batch
+run is one "session"), a per-employee user.id, a run.timestamp, and its own
+trace.id -- see run_expense_request() -- so any single request can be
+pulled back up in the Phoenix search bar later.
 """
 import json
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from common.tracing import init_tracing
+from common.tracing import init_tracing, new_session_id, print_search_hint, tag_session
+from common.llm import call_llm
 from common.evaluators import code_evaluator
+from common.console import bold, dim, eval_line, green, header, red, section
 
 EXPENSES_PATH = Path(__file__).resolve().parent / "expenses.json"
 
@@ -42,6 +52,13 @@ def load_expenses():
 
 
 EXPENSES = load_expenses()
+
+POLICY_SYSTEM = (
+    "You are an expense-approval policy engine. Policy: approve a request "
+    "only if its category is 'travel' or 'training' AND its amount_sgd is "
+    "under 500. Otherwise reject. Reply with exactly one word: APPROVE or "
+    "REJECT -- no punctuation, no explanation."
+)
 
 
 def create_ticket(request_id: str, category: str) -> bool:
@@ -61,15 +78,33 @@ def finalize_expense(request_id: str, decision: str):
     expense_system[request_id] = "COMPLETE"
 
 
-def run_expense_request(tracer, expense: dict):
+def run_expense_request(tracer, expense: dict, session_id: str):
     request_id = expense["request_id"]
     category = expense["category"]
     amount = expense["amount_sgd"]
+    employee = expense["employee"]
+    user_id = employee.lower().replace(" ", ".")
 
     with tracer.start_as_current_span(f"expense_workflow:{request_id}") as span:
+        trace_id, timestamp = tag_session(span, session_id, user_id)
         span.set_attribute("input.value", str(expense))
 
-        decision = "APPROVE" if category in ("travel", "training") and amount < 500 else "REJECT"
+        # The policy decision itself now goes through an LLM call (an
+        # OpenInference LLM span, same as patterns 1 and 3) instead of being
+        # a bare Python conditional -- the rule-based conditional survives
+        # only as canned_fallback for when the LLM/LiteLLM backend is
+        # unreachable, so the offline demo still reproduces this file's
+        # documented, deterministic REQ-1001..1004 outcomes.
+        rule_based_fallback = "APPROVE" if category in ("travel", "training") and amount < 500 else "REJECT"
+        raw_decision, usage = call_llm(
+            tracer,
+            f"policy_decision:{request_id}",
+            POLICY_SYSTEM,
+            f"Request:\n{json.dumps(expense)}",
+            canned_fallback=rule_based_fallback,
+        )
+        decision = "APPROVE" if "APPROVE" in raw_decision.upper() else "REJECT"
+        span.set_attribute("decision.llm_raw_output", raw_decision)
 
         # Harness step 1: create the ticket (audit trail other teams rely on)
         with tracer.start_as_current_span("tool:create_ticket") as tool_span:
@@ -100,12 +135,36 @@ def run_expense_request(tracer, expense: dict):
             "category": category,
             "amount": amount,
         }
-        return result, eval_result
+        return result, eval_result, trace_id, timestamp, user_id
 
 
 if __name__ == "__main__":
     tracer = init_tracing("pattern2-internal-enterprise")
+    # One session_id for the whole batch -- these four requests are one
+    # "finance ops" session in Phoenix's Sessions view, even though each
+    # request is still its own trace.
+    session_id = new_session_id()
+
+    header("PATTERN 2 -- Internal enterprise agent (expense approval workflow)")
+    print(f"{bold('Batch:')} {len(EXPENSES)} requests from expenses.json, one finance-ops session\n")
+
+    rows = []
     for expense in EXPENSES:
-        result, eval_result = run_expense_request(tracer, expense)
-        print(f"\n{result['request_id']}: {result['category']} SGD {result['amount']} -> {result['decision']}")
-        print(f"   eval[ticket_created_before_status_complete]: {eval_result['label']} ({eval_result['explanation']})")
+        section(f"{expense['request_id']} -- {expense['employee']} ({expense['department']})")
+        print(f"  {dim('category:')} {expense['category']}   {dim('amount:')} SGD {expense['amount_sgd']}   {dim('note:')} {expense['description']}")
+
+        result, eval_result, trace_id, timestamp, user_id = run_expense_request(tracer, expense, session_id)
+
+        decision_str = green(bold(result["decision"])) if result["decision"] == "APPROVE" else red(bold(result["decision"]))
+        ticket_str = green("created") if result["ticket_created"] else red("NOT created")
+        print(f"  {dim('decision:')} {decision_str}   {dim('ticket:')} {ticket_str}   {dim('status:')} {result['status']}")
+        print()
+        eval_line("ticket_created_before_status_complete", eval_result)
+        print()
+        print_search_hint(trace_id, session_id, user_id, timestamp)
+        rows.append(result | {"eval_label": eval_result["label"]})
+
+    header("SUMMARY -- all requests this batch")
+    for r in rows:
+        badge = green("PASS") if r["eval_label"] == "pass" else red("FAIL")
+        print(f"  {r['request_id']:<10} {r['category']:<10} SGD {r['amount']:<6} {r['decision']:<8} ticket={str(r['ticket_created']):<5} {badge}")

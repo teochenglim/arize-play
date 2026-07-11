@@ -22,9 +22,10 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from common.tracing import init_tracing
+from common.tracing import init_tracing, new_session_id, print_search_hint, tag_session
 from common.llm import call_llm
 from common.evaluators import binary_evaluator, harness_judge
+from common.console import bold, cyan, dim, eval_line, header, quote, section, verdict
 
 LOGS_PATH = Path(__file__).resolve().parent / "logs.json"
 
@@ -57,9 +58,13 @@ SYSTEM_V2 = SYSTEM_V1 + (
 )
 
 
-def run_triage(tracer, run_label: str, system_prompt: str):
+def run_triage(tracer, run_label: str, system_prompt: str, session_id: str, user_id: str = "sre.oncall"):
+    """`session_id` is shared across both harness-fix iterations in
+    __main__ below -- same triage session, so run1/run2 group together in
+    Phoenix's Sessions view even though each run is still its own trace."""
     log_text = "\n".join(load_logs())
     with tracer.start_as_current_span(f"sre_triage:{run_label}") as span:
+        trace_id, timestamp = tag_session(span, session_id, user_id)
         span.set_attribute("input.value", log_text)
 
         analysis, usage = call_llm(
@@ -107,24 +112,46 @@ def run_triage(tracer, run_label: str, system_prompt: str):
                 else "score: 5\nreason: Correctly identified the OOM-kill as a critical incident."
             ),
         )
-        return analysis, usage, binary_result, harness_result
+        return analysis, usage, binary_result, harness_result, trace_id, timestamp, user_id
 
 
 if __name__ == "__main__":
     tracer = init_tracing("pattern3-developer-platform")
+    session_id = new_session_id()
 
-    print("=== run 1: harness WITHOUT the OOM-kill example ===")
-    analysis, usage, binary_result, harness_result = run_triage(tracer, "run1_before_harness_fix", SYSTEM_V1)
-    print(f"agent output: {analysis}")
-    print(f"eval[missed_critical_incident]: {binary_result['label']} ({binary_result['explanation']})")
-    print(f"eval[triage_quality] (harness-as-judge): {harness_result['score']}/5 ({harness_result['explanation']})")
+    header("PATTERN 3 -- Developer platform agent (AI SRE triage)")
+    print(f"{bold('Log batch:')}")
+    print(quote("\n".join(load_logs())))
 
-    print("\n--- change the harness: add the OOM-kill signature to the system prompt ---\n")
+    section("RUN 1 -- harness v1 (generic 'flag critical failures' prompt)")
+    analysis, usage, binary_result, harness_result, trace_id, timestamp, user_id = run_triage(
+        tracer, "run1_before_harness_fix", SYSTEM_V1, session_id
+    )
+    print(f"  {dim('agent output:')}")
+    print(quote(analysis))
+    print()
+    eval_line("missed_critical_incident", binary_result)
+    eval_line("triage_quality", harness_result)
+    print()
+    print_search_hint(trace_id, session_id, user_id, timestamp)
+    run1 = (binary_result, harness_result)
 
-    print("=== run 2: harness WITH the fix, same logs ===")
-    analysis, usage, binary_result, harness_result = run_triage(tracer, "run2_after_harness_fix", SYSTEM_V2)
-    print(f"agent output: {analysis}")
-    print(f"eval[missed_critical_incident]: {binary_result['label']} ({binary_result['explanation']})")
-    print(f"eval[triage_quality] (harness-as-judge): {harness_result['score']}/5 ({harness_result['explanation']})")
+    print(f"\n{cyan('-- harness fix applied --')} one sentence added teaching the OOM-kill signature")
 
-    print(f"\nincidents raised this session: {len(incident_system)}")
+    section("RUN 2 -- harness v2 (with the OOM-kill signature)")
+    analysis, usage, binary_result, harness_result, trace_id, timestamp, user_id = run_triage(
+        tracer, "run2_after_harness_fix", SYSTEM_V2, session_id
+    )
+    print(f"  {dim('agent output:')}")
+    print(quote(analysis))
+    print()
+    eval_line("missed_critical_incident", binary_result)
+    eval_line("triage_quality", harness_result)
+    print()
+    print_search_hint(trace_id, session_id, user_id, timestamp)
+    run2 = (binary_result, harness_result)
+
+    header("SUMMARY -- before vs. after the harness fix")
+    for name, before, after in zip(("missed_critical_incident", "triage_quality"), run1, run2):
+        print(f"  {name:<24} {verdict(before)}  ->  {verdict(after)}")
+    print(f"\n  incidents raised this session: {bold(str(len(incident_system)))}")

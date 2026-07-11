@@ -32,9 +32,10 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from common.tracing import init_tracing
+from common.tracing import init_tracing, new_session_id, print_search_hint, tag_session
 from common.llm import call_llm
 from common.evaluators import binary_evaluator, code_evaluator, harness_judge
+from common.console import bold, cyan, dim, eval_line, header, quote, section, verdict
 
 EMPLOYEES_PATH = Path(__file__).resolve().parent / "employees.json"
 QUESTION = "Hi, I'm Kavya Menon. What is my leave balance and deductions?"
@@ -109,8 +110,13 @@ def ground_truth_arbiter(span, answer: str):
     about -- catches the hallucination even if the retrieval step were
     hidden from you entirely."""
     employees = _load_employees()
-    claimed_employee = _find_claimed_employee(answer, employees)
-    claimed_numbers = {int(n) for n in re.findall(r"(\d+)\s*day", answer, re.IGNORECASE)}
+    # Strip markdown emphasis (**bold**, _italic_) before number-matching --
+    # real models routinely bold the number ("**0** days"), which otherwise
+    # breaks the \s* gap between digit and "day" and silently drops the
+    # number out of claimed_numbers.
+    clean_answer = re.sub(r"[*_]", "", answer)
+    claimed_employee = _find_claimed_employee(clean_answer, employees)
+    claimed_numbers = {int(n) for n in re.findall(r"(\d+)\s*day", clean_answer, re.IGNORECASE)}
 
     if not claimed_employee:
         return code_evaluator(
@@ -132,16 +138,23 @@ def ground_truth_arbiter(span, answer: str):
     )
 
 
-def run_session(tracer, run_label: str, exact_match: bool):
+def run_session(tracer, run_label: str, exact_match: bool, session_id: str):
+    """`session_id` is shared across BOTH calls in __main__ below (the
+    before-fix and after-fix runs) -- same underlying conversation with
+    Kavya, so they group together in Phoenix's Sessions view even though
+    each run is still its own trace."""
     employees = _load_employees()
+    introduced_name = _extract_introduced_name(QUESTION)
+    user_id = introduced_name.lower().replace(" ", ".") if introduced_name else "unknown.user"
+
     with tracer.start_as_current_span(f"customer_facing_turn:{run_label}") as span:
+        trace_id, timestamp = tag_session(span, session_id, user_id)
         span.set_attribute("input.value", QUESTION)
         span.set_attribute("user_query", QUESTION)
 
         retrieved = retrieve_employee(QUESTION, employees, exact_match=exact_match)
         span.set_attribute("retrieved_employee_record", json.dumps(retrieved))
 
-        introduced_name = _extract_introduced_name(QUESTION)
         system = (
             "You are an in-app HR assistant chatting with the user directly. "
             "Address them by the name they used to introduce themselves in "
@@ -179,30 +192,51 @@ def run_session(tracer, run_label: str, exact_match: bool):
             full_trace_text=f"RETRIEVED RECORD:\n{retrieved}\n\nANSWER:\n{answer}",
             canned_fallback="score: 5\nreason: answer only restates deductions already present in the retrieved record.",
         )
-        return retrieved, answer, usage, identity_result, arbiter_result, judge_result
+        return retrieved, answer, usage, identity_result, arbiter_result, judge_result, trace_id, timestamp, user_id
 
 
 if __name__ == "__main__":
     tracer = init_tracing("pattern1-customer-facing")
+    session_id = new_session_id()
 
-    print("=== run 1: retriever WITH the highest-tenure fallback bug ===")
-    retrieved, answer, usage, identity_result, arbiter_result, judge_result = run_session(
-        tracer, "run1_buggy_retriever", exact_match=False
+    header("PATTERN 1 -- Customer-facing agent (in-app HR assistant)")
+    print(f"{bold('User asks:')}")
+    print(quote(QUESTION))
+
+    section("RUN 1 -- retriever WITH the highest-tenure fallback bug")
+    retrieved, answer, usage, identity_result, arbiter_result, judge_result, trace_id, timestamp, user_id = run_session(
+        tracer, "run1_buggy_retriever", exact_match=False, session_id=session_id
     )
-    print(f"retrieved record: {retrieved['employee']} (tenure={retrieved['tenure_years']}y)")
-    print(f"agent answer: {answer}")
-    print(f"eval[identity_lock]: {identity_result['label']} ({identity_result['explanation']})")
-    print(f"eval[ground_truth_arbiter]: {arbiter_result['label']} ({arbiter_result['explanation']})")
-    print(f"eval[no_invented_deductions]: {judge_result['score']}/5 ({judge_result['explanation']})")
+    print(f"  {dim('retrieved record:')} {bold(retrieved['employee'])} (tenure={retrieved['tenure_years']}y)")
+    print(f"  {dim('agent replies:')}")
+    print(quote(answer))
+    print()
+    eval_line("identity_lock", identity_result)
+    eval_line("ground_truth_arbiter", arbiter_result)
+    eval_line("no_invented_deductions", judge_result)
+    print()
+    print_search_hint(trace_id, session_id, user_id, timestamp)
+    run1 = (identity_result, arbiter_result, judge_result)
 
-    print("\n--- fix the retriever: exact full-name match instead of first-name-prefix + tenure fallback ---\n")
+    print(f"\n{cyan('-- fix applied --')} exact full-name match instead of first-name-prefix + tenure fallback")
 
-    print("=== run 2: retriever WITH the fix, same question ===")
-    retrieved, answer, usage, identity_result, arbiter_result, judge_result = run_session(
-        tracer, "run2_exact_match_fix", exact_match=True
+    section("RUN 2 -- retriever WITH the fix, same question")
+    retrieved, answer, usage, identity_result, arbiter_result, judge_result, trace_id, timestamp, user_id = run_session(
+        tracer, "run2_exact_match_fix", exact_match=True, session_id=session_id
     )
-    print(f"retrieved record: {retrieved['employee']} (tenure={retrieved['tenure_years']}y)")
-    print(f"agent answer: {answer}")
-    print(f"eval[identity_lock]: {identity_result['label']} ({identity_result['explanation']})")
-    print(f"eval[ground_truth_arbiter]: {arbiter_result['label']} ({arbiter_result['explanation']})")
-    print(f"eval[no_invented_deductions]: {judge_result['score']}/5 ({judge_result['explanation']})")
+    print(f"  {dim('retrieved record:')} {bold(retrieved['employee'])} (tenure={retrieved['tenure_years']}y)")
+    print(f"  {dim('agent replies:')}")
+    print(quote(answer))
+    print()
+    eval_line("identity_lock", identity_result)
+    eval_line("ground_truth_arbiter", arbiter_result)
+    eval_line("no_invented_deductions", judge_result)
+    print()
+    print_search_hint(trace_id, session_id, user_id, timestamp)
+    run2 = (identity_result, arbiter_result, judge_result)
+
+    header("SUMMARY -- before vs. after the fix")
+    for name, before, after in zip(
+        ("identity_lock", "ground_truth_arbiter", "no_invented_deductions"), run1, run2
+    ):
+        print(f"  {name:<24} {verdict(before)}  ->  {verdict(after)}")

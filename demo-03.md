@@ -26,6 +26,10 @@ moment it sees something critical.
    — did it raise the incident, plain pass/fail) and `harness_judge`
    (`triage_quality` — sees the *entire* trace: system prompt + logs + output,
    not just the last line, scored 1–5).
+5. Both runs' root spans share one `session.id` (same triage session,
+   before/after the harness fix), tagged with a `user.id` (`sre.oncall`), a
+   `run.timestamp`, and each run's own `trace.id`
+   ([agent.py:65](pattern3_developer_platform/agent.py#L65)).
 
 ## Before Arize: what's invisible
 
@@ -68,6 +72,16 @@ One more thing to point at: `triage_quality` is a `harness_judge`, not a plain
 output), not just the final answer. That matters here specifically because "how
 many tool calls, in what order" is under-specified — a rubric graded on the
 last line alone would be too rigid for a correct-but-unconventional run.
+
+## Finding this run again in Phoenix
+
+Each run's console output ends with a copy/paste block. `session.id` is the
+same UUID for run 1 and run 2 — open Phoenix's **Sessions** view and the
+whole before/after-harness-fix loop groups together as one session, so you
+can watch `missed_critical_incident` flip from fail to pass across the two
+runs without hunting for them separately. `trace.id` jumps to one run's
+trace directly; `user.id` (`sre.oncall`) and `run.timestamp` round out the
+four searchable attributes shared with patterns 1 and 2.
 
 ## Talking point
 

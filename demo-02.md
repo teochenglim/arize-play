@@ -8,14 +8,22 @@ platform/ops teams · **One high-volume internal workflow, not a chatbot.**
 ## The scenario
 
 An org-scale process — expense approvals — gets automated. No end user is
-chatting with this, and there's no LLM call at all: it's a rules-based
-workflow, plumbing between systems. Four requests come in from
-`expenses.json`.
+chatting with this; it's a workflow, plumbing between systems. Four requests
+come in from `expenses.json`. An LLM call *is* in the loop (it applies the
+approval policy per request), but it's a thin, low-stakes one — per the
+article, this pattern's risk isn't model quality, it's org friction and
+fragmented data systems, and the bug below proves it: the model gets its
+one job right every time, the harness is what silently drops the ball.
 
 ## What the code does
 
-1. A policy rule: expenses under SGD 500 in `travel`/`training` auto-approve
-   ([agent.py:72](pattern2_internal_enterprise/agent.py#L72)).
+1. A policy prompt — "approve if `travel`/`training` and under SGD 500,
+   else reject, reply APPROVE or REJECT" — sent to the LLM per request as an
+   OpenInference `LLM` span, same shape as patterns 1 and 3
+   ([agent.py:98-106](pattern2_internal_enterprise/agent.py#L98-L106)). If
+   the LLM backend is unreachable it falls back to the equivalent rule-based
+   conditional, so the offline demo still reproduces the table below
+   deterministically.
 2. Two *simulated but separate* systems: a ticketing system and an expense
    system ([agent.py:35-36](pattern2_internal_enterprise/agent.py#L35-L36)) —
    standing in for real, fragmented enterprise APIs (ServiceNow, SAP, …), per
@@ -26,6 +34,12 @@ workflow, plumbing between systems. Four requests come in from
    ([agent.py:47-55](pattern2_internal_enterprise/agent.py#L47-L55)). The
    expense still gets marked COMPLETE regardless
    ([agent.py:58-61](pattern2_internal_enterprise/agent.py#L58-L61)).
+4. Every request's root span carries a shared `session.id` (this whole
+   four-request batch is one session), a per-employee `user.id`, a
+   `run.timestamp`, and its own `trace.id`
+   ([agent.py:88](pattern2_internal_enterprise/agent.py#L88)) — the same
+   four attributes patterns 1 and 3 use, so any single request is
+   searchable in Phoenix later by whichever of the four you remember.
 
 ## Before Arize: what's invisible
 
@@ -64,6 +78,25 @@ workflow state instead is what makes the eval reusable as the harness
 evolves, and it's exactly why it catches REQ-1002: the bug isn't in the
 *order* of steps, it's in one category silently never reaching the
 ticketing system at all.
+
+## Finding this run again in Phoenix
+
+Each request's console output ends with a copy/paste block, e.g. for
+REQ-1002:
+
+```
+find this run in Phoenix (search bar, top of the Traces table):
+  trace.id      = 48706db87a52604dee7fd51bda7045c7
+  session.id    = 87fc051f-b32b-4980-a2c4-646cb3fd4c63
+  user.id       = aisha.rahman
+  run.timestamp = 2026-07-11T12:25:23.129097+00:00
+```
+
+`session.id` is the same UUID across all four requests in the batch — open
+Phoenix's **Sessions** view and the whole run groups together, so you can
+see REQ-1002's silent-drop sitting right next to the three requests that
+worked. `user.id` filters to one employee's expense history; `trace.id`
+jumps straight to this one request's trace for the deep dive.
 
 ## Talking point
 
