@@ -18,6 +18,7 @@ fronting whatever models you already have pulled in
 | 2 | Internal enterprise | Platform/ops teams | Expense approval process automation | Org friction; fragmented data systems |
 | 3 | Developer platform | Infra/platform engineering | AI SRE triaging logs, opens incidents | Governance; standardizing the harness |
 | 4 | The improvement loop | Anyone iterating on a fix from 1-3 | Same HR bug, proven fixed (or not) via Phoenix's Datasets/Prompts/Experiments UI, across all 6 employees | Proving a fix works before shipping it, not just catching the break |
+| 5 | Catching PII leaks | Anyone whose assistant handles payment data | Billing assistant asked to "confirm" a card, proven not to leak the full number across 6 customers | An assistant being "helpful" -- no hack, no attack, just a field it should never echo in full |
 
 Every run is also tagged with `session.id`, `user.id`, a `run.timestamp`,
 and its own `trace.id` (OpenInference's session/user semconv attributes),
@@ -48,13 +49,16 @@ together (`kubectl apply -f k8s/` and `kubectl delete -f k8s/` work standalone
 too, no Makefile required) and `Makefile` for the rest of the targets
 (`apply`, `configure`, `status`, `clean`).
 
-Demo 4 ([demo-04.md](demo-04.md)) is separate from the other three -- it
-talks to Phoenix's REST API directly (datasets, prompts, experiments), which
-has no offline stub fallback, so Phoenix needs to actually be up first:
+Demos 4 and 5 ([demo-04.md](demo-04.md), [demo-05.md](demo-05.md)) are
+separate from the other three -- same Phoenix Datasets/Prompts/Experiments
+workflow, two different scenarios (an identity-mismatch leak, a
+credit-card leak). Both talk to Phoenix's REST API directly, which has no
+offline stub fallback, so Phoenix needs to actually be up first:
 
 ```bash
 make apply    # if Phoenix isn't already running
 make demo-04
+make demo-05
 ```
 
 To send traces to Arize AX (cloud) instead of local Phoenix:
@@ -156,8 +160,9 @@ common/
 pattern1_customer_facing/agent.py
 pattern2_internal_enterprise/agent.py
 pattern3_developer_platform/agent.py
-pattern4_improvement_loop/agent.py   Phoenix Datasets + Prompts + Experiments, see demo-04.md
-run_all.py       runs patterns 1-3, prints the consolidated eval table (pattern 4 is standalone, see above)
+pattern4_improvement_loop/agent.py       Phoenix Datasets + Prompts + Experiments, see demo-04.md
+pattern5_credit_card_redaction/agent.py  same workflow as pattern 4, catching credit-card leaks -- see demo-05.md
+run_all.py       runs patterns 1-3, prints the consolidated eval table (patterns 4-5 are standalone, see above)
 config.yaml      LiteLLM/Phoenix NodePort addresses, Ollama model tags, per-token pricing
 k8s/             Postgres + Phoenix + LiteLLM manifests -- `kubectl apply -f k8s/`
 scripts/         discover_ollama_models.sh, configure_ollama.sh (called by `make configure`)

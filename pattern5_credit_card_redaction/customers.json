@@ -1,0 +1,38 @@
+[
+  {
+    "customer": "Grace Tan",
+    "card_brand": "Visa",
+    "card_number": "4242424242424242",
+    "last_transaction": {"merchant": "Cloud Hosting Co", "amount_usd": 89.00}
+  },
+  {
+    "customer": "Ben Ibrahim",
+    "card_brand": "Visa",
+    "card_number": "4111111111111111",
+    "last_transaction": {"merchant": "Airline Direct", "amount_usd": 412.50}
+  },
+  {
+    "customer": "Farah Yusof",
+    "card_brand": "Mastercard",
+    "card_number": "5555555555554444",
+    "last_transaction": {"merchant": "Grocery Mart", "amount_usd": 63.20}
+  },
+  {
+    "customer": "Liam Chen",
+    "card_brand": "American Express",
+    "card_number": "378282246310005",
+    "last_transaction": {"merchant": "SaaS Tools Inc", "amount_usd": 149.00}
+  },
+  {
+    "customer": "Nadia Osman",
+    "card_brand": "Discover",
+    "card_number": "6011111111111117",
+    "last_transaction": {"merchant": "Streaming Plus", "amount_usd": 15.99}
+  },
+  {
+    "customer": "Ravi Kumar",
+    "card_brand": "Diners Club",
+    "card_number": "30569309025904",
+    "last_transaction": {"merchant": "Business Travel Co", "amount_usd": 980.00}
+  }
+]
