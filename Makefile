@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup apply configure demo demo-01 demo-02 demo-03 local-demo status logs clean
+.PHONY: help setup apply configure demo demo-01 demo-02 demo-03 demo-04 local-demo status logs clean
 
 help: ## Show this target list
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*## /{printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -27,6 +27,9 @@ demo-02: ## Run only pattern 2 (expense approval workflow)
 
 demo-03: ## Run only pattern 3 (AI SRE triage loop)
 	uv run python pattern3_developer_platform/agent.py
+
+demo-04: ## Run only pattern 4 (Phoenix Prompts + Datasets + Experiments -- needs Phoenix's REST API, unlike demo-01..03 it can't fall back to offline stubs)
+	uv run python pattern4_improvement_loop/agent.py
 
 local-demo: setup ## Run all 3 patterns offline (stub responses, no k8s/ollama needed)
 	uv run python run_all.py

@@ -17,6 +17,12 @@ fronting whatever models you already have pulled in
 | 1 | Customer-facing | Product teams | In-app HR assistant answering from a flat-file employee lookup | Incomplete pre-launch evals -- a flawed retriever silently attaches the wrong person's data |
 | 2 | Internal enterprise | Platform/ops teams | Expense approval process automation | Org friction; fragmented data systems |
 | 3 | Developer platform | Infra/platform engineering | AI SRE triaging logs, opens incidents | Governance; standardizing the harness |
+| 4 | The improvement loop | Anyone iterating on a fix from 1-3 | Same HR bug, proven fixed (or not) via Phoenix's Datasets/Prompts/Experiments UI, across all 6 employees | Proving a fix works before shipping it, not just catching the break |
+
+Every run is also tagged with `session.id`, `user.id`, a `run.timestamp`,
+and its own `trace.id` (OpenInference's session/user semconv attributes),
+printed as a copy/paste block for the Phoenix search bar -- see
+[demo-01.md](demo-01.md)'s "Finding this run again in Phoenix" section.
 
 ## Quickstart
 
@@ -41,6 +47,15 @@ attributes. See [design.md](design.md) for how the k8s side is wired
 together (`kubectl apply -f k8s/` and `kubectl delete -f k8s/` work standalone
 too, no Makefile required) and `Makefile` for the rest of the targets
 (`apply`, `configure`, `status`, `clean`).
+
+Demo 4 ([demo-04.md](demo-04.md)) is separate from the other three -- it
+talks to Phoenix's REST API directly (datasets, prompts, experiments), which
+has no offline stub fallback, so Phoenix needs to actually be up first:
+
+```bash
+make apply    # if Phoenix isn't already running
+make demo-04
+```
 
 To send traces to Arize AX (cloud) instead of local Phoenix:
 
@@ -133,14 +148,16 @@ eval[triage_quality] (harness-as-judge): 5/5
 
 ```
 common/
-  tracing.py     one call, wires any pattern into k8s Phoenix or Arize AX
+  tracing.py     one call, wires any pattern into k8s Phoenix or Arize AX; session/user/trace-id tagging
   llm.py         LiteLLM call w/ offline stub fallback; consistent span shape either way
   evaluators.py  the four evaluator types, one small function each
+  console.py     ANSI color helpers for audience-facing console output
   config.py      loads config.yaml (LiteLLM/Phoenix addresses, model tags, demo pricing)
 pattern1_customer_facing/agent.py
 pattern2_internal_enterprise/agent.py
 pattern3_developer_platform/agent.py
-run_all.py       runs all three, prints the consolidated eval table
+pattern4_improvement_loop/agent.py   Phoenix Datasets + Prompts + Experiments, see demo-04.md
+run_all.py       runs patterns 1-3, prints the consolidated eval table (pattern 4 is standalone, see above)
 config.yaml      LiteLLM/Phoenix NodePort addresses, Ollama model tags, per-token pricing
 k8s/             Postgres + Phoenix + LiteLLM manifests -- `kubectl apply -f k8s/`
 scripts/         discover_ollama_models.sh, configure_ollama.sh (called by `make configure`)
@@ -152,9 +169,10 @@ design.md        why the k8s/LiteLLM/Ollama setup is shaped this way
 
 This is a demo of the eval/observability wiring, not a reference
 architecture. It skips: real retrieval/RAG, real ticketing/expense system
-APIs, staged rollout percentages, a golden-set/labeling UI, and the
+APIs, staged rollout percentages, a human-labeling UI, and the
 error-analysis clustering step the article calls out as step 2 of the real
-loop. Each is a straight line from what's here -- swap the stub systems in
-patterns 1/2 for real APIs, and swap `code_evaluator`/`binary_evaluator`
-thresholds for ones calibrated against human labels before trusting them
-in production.
+loop (demo 4's dataset is hand-picked, not mined from production traces via
+Phoenix's own UI, though that's the realistic next step from here). Each is
+a straight line from what's here -- swap the stub systems in patterns 1/2
+for real APIs, and swap `code_evaluator`/`binary_evaluator` thresholds for
+ones calibrated against human labels before trusting them in production.
