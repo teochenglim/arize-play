@@ -16,13 +16,20 @@ Each demo also has a nickname and a named failure mode -- useful shorthand
 when talking through them live -- plus a mapping to the [OWASP Top 10 for
 LLM Applications 2025](https://genai.owasp.org/llm-top-10/).
 
-| # | Demo &middot; nickname &middot; &#128293; failure mode | Who builds it | This demo's use case | The one-liner | First production risk (per the article) | OWASP mapping |
+| # | Demo | Nickname | Failure mode | Who builds it | First production risk (per the article) | OWASP mapping |
 |---|---|---|---|---|---|---|
-| 1 | [demo-01.md](demo-01.md) -- "The Wrong Kavya" &middot; Context Rot | Product teams | In-app HR assistant answering from a flat-file employee lookup | Retrieval quietly returns a stale/wrong record, the LLM answers fluently and confidently on top of it -- classic context rot wearing a friendly voice | Incomplete pre-launch evals -- a flawed retriever silently attaches the wrong person's data | LLM09:2025 Misinformation + LLM02:2025 Sensitive Information Disclosure |
-| 2 | [demo-02.md](demo-02.md) -- "The Ticket That Never Was" &middot; Silent Tool Failure | Platform/ops teams | Expense approval process automation | A tool call no-ops, the workflow marches on like nothing happened -- the agent equivalent of a phantom commit | Org friction; fragmented data systems | LLM06:2025 Excessive Agency |
-| 3 | [demo-03.md](demo-03.md) -- "The Incident That Almost Wasn't" &middot; False Negative / Alert Fatigue | Infra/platform engineering | AI SRE triaging logs, opens incidents | "All clear" gets logged while the container burns -- a confidently wrong "nothing to see here" | Governance; standardizing the harness | LLM09:2025 Misinformation |
-| 4 | [demo-04.md](demo-04.md) -- "Proof, Not Vibes" &middot; Eval Debt, Paid Down | Anyone iterating on a fix from 1-3 | Same HR bug, proven fixed (or not) via Phoenix's Datasets/Prompts/Experiments UI, across all 6 employees | A prompt fix that felt right gets run against every case at once -- vibe-shipping turned into 2/6 &rarr; 6/6 | Proving a fix works before shipping it, not just catching the break | LLM02:2025 Sensitive Information Disclosure |
-| 5 | [demo-05.md](demo-05.md) -- "Nobody Reads the Card Number Twice" &middot; Output Sanitization Gap | Anyone whose assistant handles payment data | Billing assistant asked to "confirm" a card, proven not to leak the full number across 6 customers | A full card number slips into a chat log unredacted -- and the redaction that looked fixed hallucinates its own digits | An assistant being "helpful" -- no hack, no attack, just a field it should never echo in full | LLM02:2025 Sensitive Information Disclosure + LLM05:2025 Improper Output Handling |
+| 1 | [demo-01.md](demo-01.md) | "The Wrong Kavya" | &#128293; Context Rot | Product teams | Incomplete pre-launch evals -- a flawed retriever silently attaches the wrong person's data | LLM09:2025 + LLM02:2025 |
+| 2 | [demo-02.md](demo-02.md) | "The Ticket That Never Was" | &#128293; Silent Tool Failure | Platform/ops teams | Org friction; fragmented data systems | LLM06:2025 |
+| 3 | [demo-03.md](demo-03.md) | "The Incident That Almost Wasn't" | &#128293; False Negative / Alert Fatigue | Infra/platform engineering | Governance; standardizing the harness | LLM09:2025 |
+| 4 | [demo-04.md](demo-04.md) | "Proof, Not Vibes" | &#128293; Eval Debt, Paid Down | Anyone iterating on a fix from 1-3 | Proving a fix works before shipping it, not just catching the break | LLM02:2025 |
+| 5 | [demo-05.md](demo-05.md) | "Nobody Reads the Card Number Twice" | &#128293; Output Sanitization Gap | Anyone whose assistant handles payment data | An assistant being "helpful" -- no hack, no attack, just a field it should never echo in full | LLM02:2025 + LLM05:2025 |
+
+OWASP references (full names): LLM02:2025 Sensitive Information Disclosure
+&middot; LLM05:2025 Improper Output Handling &middot; LLM06:2025 Excessive
+Agency &middot; LLM09:2025 Misinformation.
+
+Each demo's use case and one-line failure story live in its own file (linked
+above) alongside the full walkthrough.
 
 Every run is also tagged with `session.id`, `user.id`, a `run.timestamp`,
 and its own `trace.id` (OpenInference's session/user semconv attributes),
