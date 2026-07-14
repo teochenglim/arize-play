@@ -1,10 +1,17 @@
 # Demo 1: Customer-facing agent (in-app HR assistant)
 
+**"The Wrong Kavya"** · 🔥 Context Rot -- retrieval quietly returns a
+stale/wrong record, the LLM answers fluently and confidently on top of it:
+classic context rot wearing a friendly voice.
+
 **File:** `pattern1_customer_facing/agent.py` · **Who builds this:**
 product teams · **Users bring a question, the product brings their
 account-scoped data.**
 
 **Run it:** `make demo-01`
+
+**OWASP (2025):** LLM09:2025 Misinformation + LLM02:2025 Sensitive
+Information Disclosure
 
 ## The scenario
 

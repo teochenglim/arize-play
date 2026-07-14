@@ -1,8 +1,14 @@
 # Demo 4: Proving a fix actually works
 
+**"Proof, Not Vibes"** · 🔥 Eval Debt, Paid Down -- a prompt fix that felt
+right gets run against every case at once: vibe-shipping turned into
+2/6 → 6/6.
+
 **File:** `pattern4_improvement_loop/agent.py` · **Who builds this:**
 anyone who has to prove a fix works, not just find the bug · **Run it:**
 `make apply` (if Phoenix isn't already up), then `make demo-04`
+
+**OWASP (2025):** LLM02:2025 Sensitive Information Disclosure
 
 ## The one-sentence version
 

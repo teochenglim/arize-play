@@ -1,9 +1,15 @@
 # Demo 2: Internal enterprise agent (expense approval)
 
+**"The Ticket That Never Was"** · 🔥 Silent Tool Failure -- a tool call
+no-ops, the workflow marches on like nothing happened: the agent equivalent
+of a phantom commit.
+
 **File:** `pattern2_internal_enterprise/agent.py` · **Who builds this:**
 platform/ops teams · **One high-volume internal workflow, not a chatbot.**
 
 **Run it:** `make demo-02`
+
+**OWASP (2025):** LLM06:2025 Excessive Agency
 
 ## The scenario
 

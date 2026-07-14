@@ -1,8 +1,15 @@
 # Demo 5: Catching credit-card leaks
 
+**"Nobody Reads the Card Number Twice"** · 🔥 Output Sanitization Gap -- a
+full card number slips into a chat log unredacted, and the redaction that
+looked fixed hallucinates its own digits.
+
 **File:** `pattern5_credit_card_redaction/agent.py` · **Who builds this:**
 anyone whose assistant handles payment data · **Run it:** `make apply` (if
 Phoenix isn't already up), then `make demo-05`
+
+**OWASP (2025):** LLM02:2025 Sensitive Information Disclosure + LLM05:2025
+Improper Output Handling
 
 Same workflow as [demo 4](demo-04.md) — Phoenix Datasets + Prompts +
 Experiments, two prompt versions compared across every test case — pointed

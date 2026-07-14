@@ -1,9 +1,15 @@
 # Demo 3: Developer platform agent (AI SRE triage)
 
+**"The Incident That Almost Wasn't"** · 🔥 False Negative / Alert Fatigue --
+"all clear" gets logged while the container burns: a confidently wrong
+"nothing to see here."
+
 **File:** `pattern3_developer_platform/agent.py` · **Who builds this:**
 infra/platform engineering · **Builds a harness other engineers rely on.**
 
 **Run it:** `make demo-03`
+
+**OWASP (2025):** LLM09:2025 Misinformation
 
 ## The scenario
 
