@@ -12,57 +12,22 @@ and an LLM proxy ([LiteLLM](https://www.litellm.ai/)) run in local k8s,
 fronting whatever models you already have pulled in
 [Ollama](https://ollama.com/).
 
-| # | Pattern | Who builds it | This demo's use case | First production risk (per the article) |
-|---|---|---|---|---|
-| 1 | Customer-facing | Product teams | In-app HR assistant answering from a flat-file employee lookup | Incomplete pre-launch evals -- a flawed retriever silently attaches the wrong person's data |
-| 2 | Internal enterprise | Platform/ops teams | Expense approval process automation | Org friction; fragmented data systems |
-| 3 | Developer platform | Infra/platform engineering | AI SRE triaging logs, opens incidents | Governance; standardizing the harness |
-| 4 | The improvement loop | Anyone iterating on a fix from 1-3 | Same HR bug, proven fixed (or not) via Phoenix's Datasets/Prompts/Experiments UI, across all 6 employees | Proving a fix works before shipping it, not just catching the break |
-| 5 | Catching PII leaks | Anyone whose assistant handles payment data | Billing assistant asked to "confirm" a card, proven not to leak the full number across 6 customers | An assistant being "helpful" -- no hack, no attack, just a field it should never echo in full |
+Each demo also has a nickname and a named failure mode -- useful shorthand
+when talking through them live -- plus a mapping to the [OWASP Top 10 for
+LLM Applications 2025](https://genai.owasp.org/llm-top-10/).
+
+| # | Demo &middot; nickname &middot; &#128293; failure mode | Who builds it | This demo's use case | The one-liner | First production risk (per the article) | OWASP mapping |
+|---|---|---|---|---|---|---|
+| 1 | [demo-01.md](demo-01.md) -- "The Wrong Kavya" &middot; Context Rot | Product teams | In-app HR assistant answering from a flat-file employee lookup | Retrieval quietly returns a stale/wrong record, the LLM answers fluently and confidently on top of it -- classic context rot wearing a friendly voice | Incomplete pre-launch evals -- a flawed retriever silently attaches the wrong person's data | LLM09:2025 Misinformation + LLM02:2025 Sensitive Information Disclosure |
+| 2 | [demo-02.md](demo-02.md) -- "The Ticket That Never Was" &middot; Silent Tool Failure | Platform/ops teams | Expense approval process automation | A tool call no-ops, the workflow marches on like nothing happened -- the agent equivalent of a phantom commit | Org friction; fragmented data systems | LLM06:2025 Excessive Agency |
+| 3 | [demo-03.md](demo-03.md) -- "The Incident That Almost Wasn't" &middot; False Negative / Alert Fatigue | Infra/platform engineering | AI SRE triaging logs, opens incidents | "All clear" gets logged while the container burns -- a confidently wrong "nothing to see here" | Governance; standardizing the harness | LLM09:2025 Misinformation |
+| 4 | [demo-04.md](demo-04.md) -- "Proof, Not Vibes" &middot; Eval Debt, Paid Down | Anyone iterating on a fix from 1-3 | Same HR bug, proven fixed (or not) via Phoenix's Datasets/Prompts/Experiments UI, across all 6 employees | A prompt fix that felt right gets run against every case at once -- vibe-shipping turned into 2/6 &rarr; 6/6 | Proving a fix works before shipping it, not just catching the break | LLM02:2025 Sensitive Information Disclosure |
+| 5 | [demo-05.md](demo-05.md) -- "Nobody Reads the Card Number Twice" &middot; Output Sanitization Gap | Anyone whose assistant handles payment data | Billing assistant asked to "confirm" a card, proven not to leak the full number across 6 customers | A full card number slips into a chat log unredacted -- and the redaction that looked fixed hallucinates its own digits | An assistant being "helpful" -- no hack, no attack, just a field it should never echo in full | LLM02:2025 Sensitive Information Disclosure + LLM05:2025 Improper Output Handling |
 
 Every run is also tagged with `session.id`, `user.id`, a `run.timestamp`,
 and its own `trace.id` (OpenInference's session/user semconv attributes),
 printed as a copy/paste block for the Phoenix search bar -- see
 [demo-01.md](demo-01.md)'s "Finding this run again in Phoenix" section.
-
-## Why each demo, in one line
-
-Each demo also has a nickname and a named failure mode -- useful shorthand
-when talking through them live -- plus a mapping to the [OWASP Top 10 for
-LLM Applications 2025](https://genai.owasp.org/llm-top-10/).
-
-**Demo 1 -- "The Wrong Kavya" &middot; &#128293; Context Rot** ([demo-01.md](demo-01.md))
-Retrieval quietly returns a stale/wrong record, the LLM answers fluently and
-confidently on top of it -- classic context rot wearing a friendly voice.
-&rarr; Blog pattern: Customer-facing -- first risk named: "incomplete
-pre-launch evals."
-&rarr; OWASP: LLM09:2025 Misinformation + LLM02:2025 Sensitive Information
-Disclosure
-
-**Demo 2 -- "The Ticket That Never Was" &middot; &#128293; Silent Tool Failure** ([demo-02.md](demo-02.md))
-A tool call no-ops, the workflow marches on like nothing happened -- the
-agent equivalent of a phantom commit.
-&rarr; Blog pattern: Internal enterprise -- first risk named: "fragmented
-data systems."
-&rarr; OWASP: LLM06:2025 Excessive Agency
-
-**Demo 3 -- "The Incident That Almost Wasn't" &middot; &#128293; False Negative / Alert Fatigue** ([demo-03.md](demo-03.md))
-"All clear" gets logged while the container burns -- a confidently wrong
-"nothing to see here."
-&rarr; Blog pattern: Developer platform -- the article's own improvement
-loop, live.
-&rarr; OWASP: LLM09:2025 Misinformation
-
-**Demo 4 -- "Proof, Not Vibes" &middot; &#128293; Eval Debt, Paid Down** ([demo-04.md](demo-04.md))
-A prompt fix that felt right gets run against every case at once --
-vibe-shipping turned into 2/6 &rarr; 6/6.
-&rarr; OWASP: LLM02:2025 Sensitive Information Disclosure
-
-**Demo 5 -- "Nobody Reads the Card Number Twice" &middot; &#128293; Output Sanitization Gap** ([demo-05.md](demo-05.md))
-A full card number slips into a chat log unredacted -- and the redaction
-that looked fixed hallucinates its own digits.
-&rarr; OWASP: LLM02:2025 Sensitive Information Disclosure + LLM05:2025
-Improper Output Handling
 
 ## Quickstart
 
