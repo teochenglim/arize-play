@@ -23,6 +23,8 @@ LLM Applications 2025](https://genai.owasp.org/llm-top-10/).
 | 3 | [demo-03.md](demo-03.md) | "The Incident That Almost Wasn't" | &#128293; False Negative / Alert Fatigue | Infra/platform engineering | Governance; standardizing the harness | LLM09:2025 |
 | 4 | [demo-04.md](demo-04.md) | "Proof, Not Vibes" | &#128293; Eval Debt, Paid Down | Anyone iterating on a fix from 1-3 | Proving a fix works before shipping it, not just catching the break | LLM02:2025 |
 | 5 | [demo-05.md](demo-05.md) | "Nobody Reads the Card Number Twice" | &#128293; Output Sanitization Gap | Anyone whose assistant handles payment data | An assistant being "helpful" -- no hack, no attack, just a field it should never echo in full | LLM02:2025 + LLM05:2025 |
+| 6 | [demo-06.md](demo-06.md) | "Grade the Homework" | &#128293; Vibe-Checked Prompt | Anyone choosing between two prompts | A friendly-sounding prompt that pads answers and invents facts, caught by scoring instead of eyeballing | LLM09:2025 |
+| 7 | [demo-07.md](demo-07.md) | "Try Before You Switch" | &#128293; Model-Swap Roulette | Anyone weighing a cheaper or newer model | Swapping models on a hunch without measuring what you lose | LLM09:2025 |
 
 OWASP references (full names): LLM02:2025 Sensitive Information Disclosure
 &middot; LLM05:2025 Improper Output Handling &middot; LLM06:2025 Excessive
@@ -45,7 +47,17 @@ make setup   # uv sync
 make demo    # uv run python run_all.py
 ```
 
-Against real local models instead: Phoenix + LiteLLM run in your local k8s
+Against real local models instead, first pull the models the demos use
+(any chat models in `ollama list` work -- these are the tested defaults, see
+`config.yaml`):
+
+```bash
+ollama pull bonsai-2     # demos 1-7 agent + judge, and demo 7's baseline
+ollama pull lfm3         # demo 7 contender
+ollama pull qwen3:0.6b   # demo 7 contender (tiny / cheap)
+```
+
+Phoenix + LiteLLM run in your local k8s
 cluster (tested against [colima](https://github.com/abiosoft/colima)'s
 bundled k3s), LiteLLM fronts whatever's in `ollama list` on the host. The
 demo agent itself stays a normal local process -- it's never containerized,
@@ -64,16 +76,20 @@ together (`kubectl apply -f k8s/` and `kubectl delete -f k8s/` work standalone
 too, no Makefile required) and `Makefile` for the rest of the targets
 (`apply`, `configure`, `status`, `clean`).
 
-Demos 4 and 5 ([demo-04.md](demo-04.md), [demo-05.md](demo-05.md)) are
-separate from the other three -- same Phoenix Datasets/Prompts/Experiments
-workflow, two different scenarios (an identity-mismatch leak, a
-credit-card leak). Both talk to Phoenix's REST API directly, which has no
+Demos 4-7 ([demo-04.md](demo-04.md), [demo-05.md](demo-05.md),
+[demo-06.md](demo-06.md), [demo-07.md](demo-07.md)) are separate from the
+other three -- the Phoenix Datasets/Prompts/Experiments workflow: two
+fix-verification scenarios (an identity-mismatch leak, a credit-card leak),
+then demo 6 (grade two prompts) and demo 7 (grade three models), each scored
+on Correctness / Groundedness / Relevance. All talk to Phoenix's REST API directly, which has no
 offline stub fallback, so Phoenix needs to actually be up first:
 
 ```bash
 make apply    # if Phoenix isn't already running
 make demo-04
 make demo-05
+make demo-06   # compare two prompts
+make demo-07   # compare three models
 ```
 
 To send traces to Arize AX (cloud) instead of local Phoenix:
@@ -177,11 +193,13 @@ pattern2_internal_enterprise/agent.py
 pattern3_developer_platform/agent.py
 pattern4_improvement_loop/agent.py       Phoenix Datasets + Prompts + Experiments, see demo-04.md
 pattern5_credit_card_redaction/agent.py  same workflow as pattern 4, catching credit-card leaks -- see demo-05.md
-run_all.py       runs patterns 1-3, prints the consolidated eval table (patterns 4-5 are standalone, see above)
+pattern6_prompt_test/agent.py            grade two prompts on Correctness/Groundedness/Relevance -- see demo-06.md
+pattern7_model_test/agent.py             grade three models the same way -- see demo-07.md
+run_all.py       runs patterns 1-3, prints the consolidated eval table (patterns 4-7 run afterwards, see above)
 config.yaml      LiteLLM/Phoenix NodePort addresses, Ollama model tags, per-token pricing
 k8s/             Postgres + Phoenix + LiteLLM manifests -- `kubectl apply -f k8s/`
 scripts/         discover_ollama_models.sh, configure_ollama.sh (called by `make configure`)
-Makefile         demo, demo-01..demo-05, apply, configure, status, clean
+Makefile         demo, demo-01..demo-07, apply, configure, status, clean
 design.md        why the k8s/LiteLLM/Ollama setup is shaped this way
 ```
 

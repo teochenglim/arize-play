@@ -21,13 +21,18 @@ spec:
       enableServiceLinks: false
       containers:
         - name: phoenix
-          image: arizephoenix/phoenix:latest
+          image: arizephoenix/phoenix:version-21.0.0
           ports:
             - containerPort: 6006
             - containerPort: 4317
           env:
             - name: PHOENIX_SQL_DATABASE_URL
               value: postgresql://postgres:postgres@postgres:5432/postgres
+            # Phoenix >= 21 turns auth on by default for non-loopback binds (the
+            # pod binds 0.0.0.0). This is a local-only demo cluster whose
+            # clients send no token, so keep it off explicitly.
+            - name: PHOENIX_ENABLE_AUTH
+              value: "false"
             - name: PHOENIX_DISABLE_AGENT_ASSISTANT
               value: "TRUE"
           readinessProbe:

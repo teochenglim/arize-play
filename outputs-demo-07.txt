@@ -1,0 +1,116 @@
+Phoenix UI: http://localhost:30606
+
+───────────────────────────────────────────────────────────────
+  PATTERN 7 -- Which model is better? Let Phoenix grade them.
+───────────────────────────────────────────────────────────────
+Scenario: the same HR chatbot and policy as demo 6:
+
+  ACME leave policy: full-time staff get 14 days of annual leave per year. Unused leave can be carried over, up to 5 days, into the next year. Sick leave is separate: 10 days per year with a medical certificate for absences longer than 2 days. Remote work is allowed up to 3 days a week.
+
+Same 8 questions (5 answerable, 3 not), same prompt:
+  "Answer using ONLY the CONTEXT. Be brief: one or two sentences. If the context does not contain the answer, reply exactly: I don't know."
+Only the MODEL changes: bonsai-2:latest, lfm3:latest, qwen3:0.6b.
+A judge model (bonsai-2:latest) grades every answer: Correct / Grounded / Relevant.
+
+▶ Step 1 -- the questions, saved to Phoenix as a dataset
+  dataset policy-qa (8 questions)
+
+▶ Step 2 -- ask every question to each model, and grade the answers
+  bonsai-2:latest ... done.
+  lfm3:latest ... done.
+  qwen3:0.6b ... done.
+
+▶ What each one actually answered
+
+  Q1 How many days of annual leave do full-time staff get?
+      right answer: 14 days per year.
+      bonsai-2:latest  says: Full-time staff get 14 days of annual leave per year.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      lfm3:latest      says: Full-time staff at ACME receive **14 days** of annual leave per year. Unused leave may carry over u…
+                       ✔ Correct   ✘ Grounded   ✔ Relevant
+                       judge: The answer includes extra information about unused leave (carrying over up to 5 days) which is not in the QUESTION.
+      qwen3:0.6b       says: ACME leave policy states that full-time staff get 14 days of annual leave per year.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+  Q2 How many unused leave days can I carry over?
+      right answer: Up to 5 days.
+      bonsai-2:latest  says: Unused annual leave can be carried over up to 5 days, but sick leave cannot be carried over as it i…
+                       ✔ Correct   ✔ Grounded   ✘ Relevant
+                       judge: The answer includes unnecessary information about sick leave which was not requested in the question.
+      lfm3:latest      says: Unused leave can be carried over, up to 5 days, into the next year.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      qwen3:0.6b       says: 14 days.
+                       ✘ Correct   ✘ Grounded   ✘ Relevant
+                       judge: The answer incorrectly identifies full-time annual leave days instead of unused carryover days, contradicting both the reference and context.
+
+  Q3 How many days a week can I work remotely?
+      right answer: Up to 3 days a week.
+      bonsai-2:latest  says: Remote work is allowed up to 3 days a week.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      lfm3:latest      says: According to the ACME leave policy, remote work is allowed up to 3 days a week. Therefore, you can …
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      qwen3:0.6b       says: I don't know.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+  Q4 I carried over 3 unused days. How many annual leave days can I use this year in total?
+      right answer: 17 days (14 + 3 carried over).
+      bonsai-2:latest  says: You can use 14 days of annual leave plus the 3 carried-over days for a total of 17 days.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      lfm3:latest      says: Based on the context, full-time staff get 14 days of annual leave per year and unused leave can be …
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      qwen3:0.6b       says: I can use 3 unused days for the current year. With full-time leave of 14 days per year, and 5 days …
+                       ✘ Correct   ✔ Grounded   ✔ Relevant
+                       judge: The ANSWER incorrectly calculates 19 days instead of the correct 17 days based on carrying over only 3 days.
+
+  Q5 I'm out sick for exactly 2 days. Do I need a medical certificate?
+      right answer: No -- only for absences longer than 2 days.
+      bonsai-2:latest  says: No, because the policy requires a medical certificate only for absences longer than 2 days.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      lfm3:latest      says: Based on the context, sick leave requires a medical certificate only for absences longer than 2 day…
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      qwen3:0.6b       says: Yes, you need a medical certificate for the 2 days of sick leave.
+                       ✘ Correct   ✘ Grounded   ✔ Relevant
+                       judge: The answer contradicts the reference by claiming a certificate is needed for exactly 2 days, whereas the context states it is required only for absences longer 
+
+  Q6 How big is the annual bonus?
+      right answer: Not stated in the policy -- the bot should say it doesn't know.
+      bonsai-2:latest  says: I don't know.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      lfm3:latest      says: I don't know. The provided context discusses ACME's leave policies but does not mention an annual b…
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      qwen3:0.6b       says: The annual bonus depends on the leave policies mentioned. Full-time staff receive 14 days of annual…
+                       ✔ Correct   ✔ Grounded   ✘ Relevant
+                       judge: The answer provides irrelevant advice connecting leave policies to a bonus query, instead of simply stating it is not stated.
+
+  Q7 How many weeks of parental leave do I get?
+      right answer: Not stated in the policy -- the bot should say it doesn't know.
+      bonsai-2:latest  says: I don't know.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      lfm3:latest      says: I don't know. The provided context mentions ACME's leave policies for annual leave, sick leave, and…
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      qwen3:0.6b       says: I don't know.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+  Q8 Does the company offer a dental plan?
+      right answer: Not stated in the policy -- the bot should say it doesn't know.
+      bonsai-2:latest  says: I don't know.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+      lfm3:latest      says: I don't know. The provided context mentions ACME's leave policy and remote work but does not mentio…
+                       ✔ Correct   ✔ Grounded   ✘ Relevant
+                       judge: The answer includes unnecessary explanation about what the context mentions instead of just stating it doesn't know.
+      qwen3:0.6b       says: I don't know.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+─────────────────────────────────────────
+  SCOREBOARD -- answers passed out of 8
+─────────────────────────────────────────
+                bonsai-2:latest lfm3:latest     qwen3:0.6b      
+  Correct       8/8  (1.00)     8/8  (1.00)     5/8  (0.62)     
+  Grounded      8/8  (1.00)     7/8  (0.88)     6/8  (0.75)     
+  Relevant      7/8  (0.88)     7/8  (0.88)     6/8  (0.75)     
+  Overall       23/24  (0.96)   22/24  (0.92)   17/24  (0.71)   
+
+  Winner: bonsai-2:latest
+
+Browse every row + judge notes in Phoenix:
+  http://localhost:30606/datasets/RGF0YXNldDox/experiments

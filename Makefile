@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup apply configure demo demo-01 demo-02 demo-03 demo-04 demo-05 status logs clean
+.PHONY: help setup apply configure demo demo-01 demo-02 demo-03 demo-04 demo-05 demo-06 demo-07 status logs clean
 
 help: ## Show this target list
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*## /{printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -9,14 +9,14 @@ setup: ## uv sync
 
 apply: ## kubectl apply -f k8s/ (postgres + phoenix + arize-litellm), wait for rollout
 	kubectl apply -f k8s/
-	kubectl rollout status deployment/postgres --timeout=60s
-	kubectl rollout status deployment/phoenix --timeout=60s
-	kubectl rollout status deployment/arize-litellm --timeout=60s
+	kubectl rollout status deployment/postgres --timeout=180s
+	kubectl rollout status deployment/phoenix --timeout=180s
+	kubectl rollout status deployment/arize-litellm --timeout=180s
 
 configure: ## Re-discover local Ollama models, point arize-litellm at them
 	./scripts/configure_ollama.sh
 
-demo: ## Run all 3 patterns (run_all.py) against k8s Phoenix/LiteLLM
+demo: ## Run all 7 patterns (run_all.py) against k8s Phoenix/LiteLLM
 	uv run python run_all.py
 
 demo-01: ## Run only pattern 1 (customer-facing HR assistant)
@@ -33,6 +33,12 @@ demo-04: ## Run only pattern 4 (Phoenix Prompts + Datasets + Experiments -- need
 
 demo-05: ## Run only pattern 5 (catch credit-card leaks, same Prompts+Datasets+Experiments workflow as demo-04 -- also needs Phoenix's REST API)
 	uv run python pattern5_credit_card_redaction/agent.py
+
+demo-06: ## Run only pattern 6 (eval two prompts: pass-fail grades for each -- needs Phoenix's REST API)
+	uv run python pattern6_prompt_test/agent.py
+
+demo-07: ## Run only pattern 7 (eval two models, same prompt: Correctness / Groundedness / Relevance for each -- needs Phoenix's REST API)
+	uv run python pattern7_model_test/agent.py
 
 status: ## Show postgres/phoenix/arize-litellm deploy, svc, and pod status
 	kubectl get deploy/postgres deploy/phoenix deploy/arize-litellm svc/postgres svc/phoenix svc/arize-litellm

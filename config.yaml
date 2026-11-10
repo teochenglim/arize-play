@@ -6,6 +6,8 @@
 # still override these if you ever do run the agent elsewhere.
 litellm:
   base_url: http://localhost:30401
+  disable_thinking: true   # send think=false: reasoning models (minicpm5, qwen3) otherwise answer with their chain of thought
+  api_key: sk-demo-45f693ee27fbdbbc3916cadb06fa3e088d1f2c5888d63e4f   # must match k8s/19-litellm-secret.yaml; LITELLM_API_KEY env overrides
 
 # Which real Ollama models LiteLLM routes the "agent"/"judge" aliases to, and
 # where it reaches Ollama (from inside the LiteLLM pod, via
@@ -15,8 +17,14 @@ litellm:
 # and patches that ConfigMap to match if your local models differ.
 ollama:
   api_base: http://host.docker.internal:11434
-  agent_model: ollama/llama3.1:8b
-  judge_model: ollama/qwen3:0.6b
+  agent_model: ollama/bonsai-2:latest      # baseline model (demos 1-6, and demo 7 model A)
+  judge_model: ollama/bonsai-2:latest      # grader for demos 6-7: most accurate of the three in testing, and ~1s/call
+  # Demo 7 runs the same prompt + questions through each of these and compares
+  # them. Any pulled model works: LiteLLM routes "ollama/<name>" via a wildcard.
+  #   bonsai-2   accurate, terse, follows the format   -> also the baseline + judge
+  #   lfm3       fast but chatty, ignores "be brief"
+  #   qwen3:0.6b tiny and cheap -- the "can we downsize?" candidate
+  compare_models: [bonsai-2:latest, lfm3:latest, qwen3:0.6b]
 
 phoenix:
   collector_endpoint: http://localhost:30317

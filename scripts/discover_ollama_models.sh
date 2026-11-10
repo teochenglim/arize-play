@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Picks a bigger "agent" model and a small/fast "judge" model from whatever
+# Picks an "agent" (baseline) and a "judge" model from whatever
 # `ollama list` has pulled locally. Prints AGENT_MODEL=/JUDGE_MODEL= (bare
 # tags, e.g. llama3.1:8b) -- scripts/configure_ollama.sh prefixes them with
 # "ollama/" before writing them into the k8s ConfigMap.
 set -euo pipefail
 
 # Preference order, most-preferred first. First match found locally wins.
-AGENT_PREFERENCE=(llama3.1:8b qwen3:8b mistral:latest gemma3:latest llama3.1:latest)
-JUDGE_PREFERENCE=(qwen3:0.6b qwen3:1.7b llama3.2:latest phi4-mini:latest)
+AGENT_PREFERENCE=(bonsai-2:latest qwen3:latest llama3.1:8b mistral:latest)
+JUDGE_PREFERENCE=(bonsai-2:latest qwen3:latest gemma4:latest llama3.2:latest)
 
 # Never picked, even as a last-resort fallback -- not general chat models.
 EXCLUDE_PATTERN='embed|rerank|bge-|flux|z-image|minicpm-v'

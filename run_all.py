@@ -82,7 +82,7 @@ except httpx.HTTPError:
     phoenix_up = False
 
 if phoenix_up:
-    for script in ("pattern4_improvement_loop/agent.py", "pattern5_credit_card_redaction/agent.py"):
+    for script in ("pattern4_improvement_loop/agent.py", "pattern5_credit_card_redaction/agent.py", "pattern6_prompt_test/agent.py", "pattern7_model_test/agent.py"):
         print(f"\n{'=' * 78}")
         # subprocess.run() writes to the inherited stdout fd directly, but
         # this script's own print()s above are fully buffered (not
@@ -93,5 +93,5 @@ if phoenix_up:
         sys.stdout.flush()
         subprocess.run(["uv", "run", "python", script], check=False)
 else:
-    print(f"\n[patterns 4 & 5 skipped -- Phoenix not reachable at {phoenix_url}]")
+    print(f"\n[patterns 4-7 skipped -- Phoenix not reachable at {phoenix_url}]")
     print("Run `make apply` first, then `make demo` again, to include them.")

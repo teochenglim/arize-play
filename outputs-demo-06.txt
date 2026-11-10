@@ -1,0 +1,105 @@
+Phoenix UI: http://localhost:30606
+
+────────────────────────────────────────────────────────────────
+  PATTERN 6 -- Which prompt is better? Let Phoenix grade them.
+────────────────────────────────────────────────────────────────
+Scenario: an HR chatbot answers questions about this policy:
+
+  ACME leave policy: full-time staff get 14 days of annual leave per year. Unused leave can be carried over, up to 5 days, into the next year. Sick leave is separate: 10 days per year with a medical certificate for absences longer than 2 days. Remote work is allowed up to 3 days a week.
+
+We ask 8 questions. 5 are answerable from the policy; 3 are NOT, so a good bot
+must say "I don't know" instead of inventing something.
+Same model (bonsai-2:latest) both times -- only the prompt changes. A judge model (bonsai-2:latest) grades every answer:
+  Correct   right answer, or an honest "I don't know"
+  Grounded  only facts from the policy, nothing invented
+  Relevant  answers the question, no padding or extra tips
+
+▶ Step 1 -- save the questions to Phoenix as a dataset
+  dataset policy-qa (8 questions)
+
+▶ Step 2 -- save the two prompts to Phoenix as versions of one prompt
+  Prompt 1 (first draft): "You are a friendly HR assistant. Answer the employee's question helpfully and completely, adding any useful tips."
+  Prompt 2 (the fix):     "Answer using ONLY the CONTEXT. Be brief: one or two sentences. If the context does not contain the answer, reply exactly: I don't know."
+
+▶ Step 3 -- ask the bot every question with each prompt, and grade the answers
+  Prompt 1 ... done.  Prompt 2 ... done.
+
+▶ What each one actually answered
+
+  Q1 How many days of annual leave do full-time staff get?
+      right answer: 14 days per year.
+      Prompt 1         says: Hello! Based on our company's leave policy, **full-time staff receive 14 days of annual leave per y…
+                       ✔ Correct   ✘ Grounded   ✘ Relevant
+                       judge: The answer includes external knowledge and tips not found in the context, and adds extra advice beyond the simple question.
+      Prompt 2         says: Full-time staff get 14 days of annual leave per year.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+  Q2 How many unused leave days can I carry over?
+      right answer: Up to 5 days.
+      Prompt 1         says: Based on the ACME leave policy, you can carry over up to **5 days** of unused annual leave into the…
+                       ✔ Correct   ✘ Grounded   ✘ Relevant
+                       judge: The answer includes extra tips and calculations not found in the context.
+      Prompt 2         says: Unused annual leave can be carried over up to 5 days into the next year.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+  Q3 How many days a week can I work remotely?
+      right answer: Up to 3 days a week.
+      Prompt 1         says: Based on ACME's leave policy, you are allowed to work remotely for up to **3 days a week**. Here ar…
+                       ✔ Correct   ✘ Grounded   ✘ Relevant
+                       judge: The answer includes extra tips and advice not present in the context or question.
+      Prompt 2         says: Remote work is allowed up to 3 days a week.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+  Q4 I carried over 3 unused days. How many annual leave days can I use this year in total?
+      right answer: 17 days (14 + 3 carried over).
+      Prompt 1         says: Hello! Based on the ACME leave policy, here is the breakdown for your situation: You carry over **3…
+                       ✔ Correct   ✘ Grounded   ✘ Relevant
+                       judge: The answer contains multiple facts, tips, and advice not found in the provided context, such as deadline reminders and scheduling around holidays.
+      Prompt 2         says: You have used 14 days this year and can carry over an additional 5 days, so you can use up to 19 da…
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+  Q5 I'm out sick for exactly 2 days. Do I need a medical certificate?
+      right answer: No -- only for absences longer than 2 days.
+      Prompt 1         says: Hi there! I'd be happy to help you with your leave policy questions. Based on the ACME leave policy…
+                       ✔ Correct   ✘ Grounded   ✘ Relevant
+                       judge: The answer adds external facts about unused sick leave carrying over and unnecessary well-wishes, which are not in the context.
+      Prompt 2         says: I don't know.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+  Q6 How big is the annual bonus?
+      right answer: Not stated in the policy -- the bot should say it doesn't know.
+      Prompt 1         says: Hi there! I'd love to help you with that, but based on the **ACME leave policy** provided, there is…
+                       ✔ Correct   ✘ Grounded   ✘ Relevant
+                       judge: The answer adds specific advice and tips not found in the context.
+      Prompt 2         says: I don't know
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+  Q7 How many weeks of parental leave do I get?
+      right answer: Not stated in the policy -- the bot should say it doesn't know.
+      Prompt 1         says: Hi there! 👋 That's an important question about your benefits. Based on the **ACME leave policy** yo…
+                       ✔ Correct   ✔ Grounded   ✘ Relevant
+                       judge: The answer provides extra tips and advice beyond just stating that the information is not stated, violating the relevance constraint.
+      Prompt 2         says: I don't know.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+  Q8 Does the company offer a dental plan?
+      right answer: Not stated in the policy -- the bot should say it doesn't know.
+      Prompt 1         says: Hi there! As your friendly HR assistant, I'd love to help clarify that for you. Based on the contex…
+                       ✔ Correct   ✘ Grounded   ✘ Relevant
+                       judge: The answer includes advice and external tips not present in the context or reference, violating groundedness and relevance constraints.
+      Prompt 2         says: I don't know.
+                       ✔ Correct   ✔ Grounded   ✔ Relevant
+
+─────────────────────────────────────────
+  SCOREBOARD -- answers passed out of 8
+─────────────────────────────────────────
+                Prompt 1        Prompt 2        
+  Correct       8/8  (1.00)     8/8  (1.00)     
+  Grounded      1/8  (0.12)     8/8  (1.00)     
+  Relevant      0/8  (0.00)     8/8  (1.00)     
+  Overall       9/24  (0.38)    24/24  (1.00)   
+
+  Winner: Prompt 2
+
+Browse every row + judge notes in Phoenix:
+  http://localhost:30606/datasets/RGF0YXNldDox/experiments

@@ -79,3 +79,39 @@ def _parse_judge(text: str):
         if line.startswith("reason"):
             reason = line.split(":", 1)[-1].strip()
     return score, reason
+
+
+
+def judge_answer(tracer, question: str, context: str, reference: str, answer: str) -> dict:
+    """One fast LLM-judge call that grades an answer on three binary checks
+    (correctness / groundedness / relevance). Small local models are far more
+    reliable at pass/fail than at 1-5 scores. Returns
+    {metric: {"score": 1|0, "label": "pass"|"fail", "explanation": reason}}."""
+    import re
+
+    system = (
+        "You grade an AI assistant's ANSWER. Reply with ONLY a JSON object: "
+        '{"correctness":"pass|fail","groundedness":"pass|fail","relevance":"pass|fail","reason":"<one short sentence>"}\n'
+        "- correctness: pass only if the ANSWER agrees with the REFERENCE. If the REFERENCE says the "
+        "policy does not state it, pass only if the ANSWER says it does not know / is not stated; "
+        "fail if it gives any specific figure or guess.\n"
+        "- groundedness: pass only if EVERY fact in the ANSWER appears in the CONTEXT. Fail if it adds "
+        "any fact, number, tip or general knowledge that is not in the CONTEXT. 'I don't know' passes.\n"
+        "- relevance: pass only if the ANSWER is short and addresses only the QUESTION. Fail if it adds "
+        "unrelated advice, extra tips or padding."
+    )
+    prompt = f"CONTEXT: {context}\nQUESTION: {question}\nREFERENCE: {reference}\nANSWER: {answer}"
+    text, _ = call_llm(tracer, "judge", system, prompt,
+                       canned_fallback='{"correctness":"pass","groundedness":"pass","relevance":"pass","reason":"stub"}',
+                       model_role="judge")
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    try:
+        data = json.loads(re.search(r"\{.*\}", text, re.DOTALL).group(0))
+    except (AttributeError, json.JSONDecodeError):
+        data = {}
+    reason = str(data.get("reason", "judge reply was not valid JSON"))[:160]
+    out = {}
+    for metric in ("correctness", "groundedness", "relevance"):
+        ok = str(data.get(metric, "fail")).strip().lower() == "pass"
+        out[metric] = {"score": 1 if ok else 0, "label": "pass" if ok else "fail", "explanation": reason}
+    return out

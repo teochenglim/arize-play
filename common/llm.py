@@ -30,6 +30,8 @@ _config = load_config()
 
 MODEL = os.environ.get("DEMO_MODEL", "stub")
 LITELLM_BASE_URL = os.environ.get("LITELLM_BASE_URL", _config["litellm"]["base_url"])
+LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", _config["litellm"].get("api_key", ""))
+DISABLE_THINKING = _config["litellm"].get("disable_thinking", False)
 PRICE_PER_1M_INPUT = _config["pricing_usd_per_1m_tokens"]["input"]
 PRICE_PER_1M_OUTPUT = _config["pricing_usd_per_1m_tokens"]["output"]
 
@@ -47,9 +49,14 @@ def _litellm_chat(model_role: str, messages: list):
     """POSTs one turn to LiteLLM, returns the raw assistant message dict
     plus token counts."""
     body = {"model": model_role, "messages": messages, "stream": False}
+    if DISABLE_THINKING:
+        # Reasoning models (minicpm5, qwen3) otherwise dump their chain of
+        # thought into the reply. Ollama honors this; non-thinking models may not.
+        body["think"] = False
     response = httpx.post(
         f"{LITELLM_BASE_URL.rstrip('/')}/chat/completions",
         json=body,
+        headers={"Authorization": f"Bearer {LITELLM_API_KEY}"},
         timeout=120,
     )
     response.raise_for_status()

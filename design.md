@@ -75,11 +75,15 @@ about real Ollama model tags, via two named aliases:
 model_list:
   - model_name: agent
     litellm_params:
-      model: os.environ/AGENT_MODEL      # e.g. ollama/llama3.1:8b
+      model: os.environ/AGENT_MODEL      # e.g. ollama/bonsai-2:latest
       api_base: os.environ/OLLAMA_API_BASE
   - model_name: judge
     litellm_params:
-      model: os.environ/JUDGE_MODEL      # e.g. ollama/qwen3:0.6b
+      model: os.environ/JUDGE_MODEL      # e.g. ollama/bonsai-2:latest
+      api_base: os.environ/OLLAMA_API_BASE
+  - model_name: "ollama/*"               # wildcard: demo 7 calls any pulled model by name
+    litellm_params:
+      model: "ollama/*"
       api_base: os.environ/OLLAMA_API_BASE
 ```
 
@@ -87,7 +91,7 @@ That file never changes. Swapping models means patching the `arize-ollama-models
 ConfigMap (`AGENT_MODEL` / `JUDGE_MODEL` / `OLLAMA_API_BASE`) and
 `kubectl rollout restart deploy/arize-litellm` — no manifest templating anywhere.
 `scripts/discover_ollama_models.sh` picks sane defaults from `ollama list` output; the
-ConfigMap ships with working hardcoded defaults (`llama3.1:8b` / `qwen3:0.6b`) so
+ConfigMap ships with working hardcoded defaults (`bonsai-2` for both) so
 `kubectl apply -f k8s/` works with zero extra steps even if discovery is never run.
 
 The cluster already runs an unrelated `litellm-guard` (Deployment + NodePort 30400) in the
@@ -133,8 +137,18 @@ not run standalone:
   restarts `deploy/arize-litellm`
 
 `Makefile` targets: `setup` (`uv sync`), `apply`, `configure`, `demo` (`uv run python
-run_all.py`), `demo-01`..`demo-05`, `status`, `clean` (`kubectl delete -f k8s/`). `demo`
+run_all.py`), `demo-01`..`demo-07`, `status`, `clean` (`kubectl delete -f k8s/`). `demo`
 itself has no `setup`/`apply` prerequisite -- it just runs `run_all.py` against whatever's
 already there, so the same command is both the zero-setup offline path (nothing else
 running, stub responses) and the real-models path (after `apply`/`configure`), depending on
 what you ran first.
+
+## Auth and pinned images
+
+Both images are pinned (`ghcr.io/berriai/litellm:v1.108.4`, `arizephoenix/phoenix:version-21.0.0`)
+because floating tags broke the demo: newer LiteLLM refuses to boot without a master key, and
+Phoenix >= 21 enables auth by default on non-loopback binds. LiteLLM gets a demo master key from
+`k8s/19-litellm-secret.yaml` (the client reads the same value from `config.yaml` `litellm.api_key`,
+or `LITELLM_API_KEY`). Phoenix runs with `PHOENIX_ENABLE_AUTH=false` -- fine for a local-only
+cluster, not for anything shared. Reasoning models (qwen3, minicpm) otherwise answer with their
+chain of thought, so `config.yaml` `litellm.disable_thinking: true` sends `think: false` on every call.

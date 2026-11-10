@@ -14,6 +14,12 @@ data:
         litellm_params:
           model: os.environ/AGENT_MODEL
           api_base: os.environ/OLLAMA_API_BASE
+      # Wildcard: demo 7 can call any pulled model as "ollama/<name>" without
+      # a per-model alias here.
+      - model_name: "ollama/*"
+        litellm_params:
+          model: "ollama/*"
+          api_base: os.environ/OLLAMA_API_BASE
       - model_name: judge
         litellm_params:
           model: os.environ/JUDGE_MODEL

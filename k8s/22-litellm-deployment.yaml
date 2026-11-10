@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: litellm
-          image: ghcr.io/berriai/litellm:main-stable
+          image: ghcr.io/berriai/litellm:v1.108.4
           args:
             - --port
             - "4000"
@@ -24,6 +24,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: arize-ollama-models
+            - secretRef:
+                name: arize-litellm-key
           env:
             - name: LITELLM_LOG
               value: INFO
